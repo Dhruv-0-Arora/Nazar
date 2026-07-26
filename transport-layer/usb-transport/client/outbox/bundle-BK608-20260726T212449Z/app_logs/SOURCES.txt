@@ -1,0 +1,1 @@
+app_logs/01-LOG.txt <- /c/Berkan/NVIDIA AI Hackathon/problem-folders/TEXTERROR/LOG.txt (source 0 lines, kept last 500, truncated=no)

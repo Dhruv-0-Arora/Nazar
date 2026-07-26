@@ -1,0 +1,30 @@
+{
+  "contract_version": "1",
+  "collector_version": "0.1.0",
+  "bundle": "bundle-BK608-20260726T212139Z",
+  "hostname": "BK608",
+  "created_at_utc": "2026-07-26T21:21:39Z",
+  "os": "MINGW64_NT-10.0-26200 3.6.5-22c95533.x86_64 x86_64",
+  "targets": {
+    "problem_dirs": ["/c/Berkan/NVIDIA AI Hackathon/problem-folders/TEXTERROR"],
+    "log_files": ["/c/Berkan/NVIDIA AI Hackathon/problem-folders/TEXTERROR/LOG.txt"],
+    "docs_dir": "",
+    "services": ["staletextdocs"]
+  },
+  "log_tail_lines": 500,
+  "file_count": 10,
+  "total_bytes": 14111,
+  "counts_by_kind": {"log": 1, "meta": 3, "network": 1, "problem": 2, "service": 2, "system": 1},
+  "files": [
+    {"path": "app_logs/01-LOG.txt", "bytes": 26, "sha256": "3eb7b5ce5702890842c0513639593aff967befce580d03ccb0c5d2ebb05d2168", "kind": "log"},
+    {"path": "app_logs/SOURCES.txt", "bytes": 133, "sha256": "07f6ef3d18b0b1c6dc313198b1319407cfe6661e6cf85659b14247d579a5d5c8", "kind": "meta"},
+    {"path": "network.txt", "bytes": 12751, "sha256": "9606fddba99a3cacb07755601cd341f5f741be3d730ed80cb525607ef9bd9a6d", "kind": "network"},
+    {"path": "NOTES.txt", "bytes": 0, "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "kind": "meta"},
+    {"path": "problem/SKIPPED.txt", "bytes": 0, "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "kind": "meta"},
+    {"path": "problem/TEXTERROR/LOG.txt", "bytes": 26, "sha256": "3eb7b5ce5702890842c0513639593aff967befce580d03ccb0c5d2ebb05d2168", "kind": "problem"},
+    {"path": "problem/TEXTERROR/readme.md", "bytes": 81, "sha256": "921a9974ad88738aa902b3f6034c9dc5bf00792063fb81e7589abbd57aecf49c", "kind": "problem"},
+    {"path": "services/staletextdocs/journal.txt", "bytes": 99, "sha256": "dbe9deaf187497b9aa10407fd916439efdb398532c4ad6ef8a693ced01c2586d", "kind": "service"},
+    {"path": "services/staletextdocs/status.txt", "bytes": 95, "sha256": "dae56e9a491da94143e7dffbcd0c068d93be28dae32f87a55762cab68fbd09bc", "kind": "service"},
+    {"path": "system.txt", "bytes": 900, "sha256": "34494d5ede67057fa6d4397b6bd6888d61548cac3ae1483f934b23d11d51b132", "kind": "system"}
+  ]
+}

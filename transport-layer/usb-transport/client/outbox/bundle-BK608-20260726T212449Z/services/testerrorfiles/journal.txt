@@ -1,0 +1,3 @@
+### CMD: journalctl -u testerrorfiles -n 200 --no-pager ###
+[command not available on this system]
+

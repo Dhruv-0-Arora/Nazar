@@ -1,0 +1,3 @@
+### CMD: systemctl status staletextdocs --no-pager ###
+[command not available on this system]
+

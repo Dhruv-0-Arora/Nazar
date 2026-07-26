@@ -1,0 +1,222 @@
+### CMD: ip addr ###
+[command not available on this system]
+
+### CMD: ip route ###
+[command not available on this system]
+
+### CMD: ss -tlnp ###
+[command not available on this system]
+
+### CMD: netstat -an ###
+
+Active Connections
+
+  Proto  Local Address          Foreign Address        State
+  TCP    0.0.0.0:135            0.0.0.0:0              LISTENING
+  TCP    0.0.0.0:445            0.0.0.0:0              LISTENING
+  TCP    0.0.0.0:5040           0.0.0.0:0              LISTENING
+  TCP    0.0.0.0:7680           0.0.0.0:0              LISTENING
+  TCP    0.0.0.0:49664          0.0.0.0:0              LISTENING
+  TCP    0.0.0.0:49665          0.0.0.0:0              LISTENING
+  TCP    0.0.0.0:49666          0.0.0.0:0              LISTENING
+  TCP    0.0.0.0:49667          0.0.0.0:0              LISTENING
+  TCP    0.0.0.0:49668          0.0.0.0:0              LISTENING
+  TCP    0.0.0.0:49669          0.0.0.0:0              LISTENING
+  TCP    127.0.0.1:11434        0.0.0.0:0              LISTENING
+  TCP    127.0.0.1:27017        0.0.0.0:0              LISTENING
+  TCP    127.0.0.1:40007        0.0.0.0:0              LISTENING
+  TCP    127.0.0.1:40007        127.0.0.1:62745        ESTABLISHED
+  TCP    127.0.0.1:41343        0.0.0.0:0              LISTENING
+  TCP    127.0.0.1:44950        0.0.0.0:0              LISTENING
+  TCP    127.0.0.1:44960        0.0.0.0:0              LISTENING
+  TCP    127.0.0.1:56945        0.0.0.0:0              LISTENING
+  TCP    127.0.0.1:57024        127.0.0.1:57025        ESTABLISHED
+  TCP    127.0.0.1:57025        127.0.0.1:57024        ESTABLISHED
+  TCP    127.0.0.1:57026        127.0.0.1:57027        ESTABLISHED
+  TCP    127.0.0.1:57027        127.0.0.1:57026        ESTABLISHED
+  TCP    127.0.0.1:59229        0.0.0.0:0              LISTENING
+  TCP    127.0.0.1:62732        0.0.0.0:0              LISTENING
+  TCP    127.0.0.1:62745        127.0.0.1:40007        ESTABLISHED
+  TCP    172.16.10.218:49287    20.42.73.31:443        ESTABLISHED
+  TCP    172.16.10.218:49460    20.59.87.227:443       ESTABLISHED
+  TCP    172.16.10.218:49462    20.59.87.225:443       ESTABLISHED
+  TCP    172.16.10.218:49928    52.96.121.34:443       ESTABLISHED
+  TCP    172.16.10.218:49939    52.110.6.27:443        ESTABLISHED
+  TCP    172.16.10.218:49940    40.99.169.130:443      ESTABLISHED
+  TCP    172.16.10.218:49941    52.110.6.28:443        ESTABLISHED
+  TCP    172.16.10.218:50060    34.83.54.242:443       ESTABLISHED
+  TCP    172.16.10.218:50061    142.251.34.202:443     TIME_WAIT
+  TCP    172.16.10.218:50062    142.251.34.202:443     TIME_WAIT
+  TCP    172.16.10.218:51027    142.250.73.110:443     ESTABLISHED
+  TCP    172.16.10.218:51552    160.79.104.10:443      ESTABLISHED
+  TCP    172.16.10.218:52121    52.96.164.194:443      ESTABLISHED
+  TCP    172.16.10.218:52406    160.79.104.10:443      ESTABLISHED
+  TCP    172.16.10.218:52409    160.79.104.10:443      ESTABLISHED
+  TCP    172.16.10.218:52410    160.79.104.10:443      ESTABLISHED
+  TCP    172.16.10.218:52412    34.149.66.165:443      ESTABLISHED
+  TCP    172.16.10.218:52418    208.103.161.1:443      ESTABLISHED
+  TCP    172.16.10.218:52419    208.103.161.1:443      ESTABLISHED
+  TCP    172.16.10.218:52421    18.97.36.49:443        ESTABLISHED
+  TCP    172.16.10.218:52422    52.112.84.176:443      ESTABLISHED
+  TCP    172.16.10.218:52423    52.123.128.14:443      ESTABLISHED
+  TCP    172.16.10.218:52848    54.213.123.81:443      CLOSE_WAIT
+  TCP    172.16.10.218:54607    16.145.255.196:443     ESTABLISHED
+  TCP    172.16.10.218:54608    20.59.87.227:443       ESTABLISHED
+  TCP    172.16.10.218:54948    160.79.104.10:443      ESTABLISHED
+  TCP    172.16.10.218:55017    172.66.154.15:443      ESTABLISHED
+  TCP    172.16.10.218:55019    208.103.161.1:443      ESTABLISHED
+  TCP    172.16.10.218:55023    172.67.183.128:443     ESTABLISHED
+  TCP    172.16.10.218:55029    18.97.36.59:443        ESTABLISHED
+  TCP    172.16.10.218:55053    160.79.104.10:443      ESTABLISHED
+  TCP    172.16.10.218:56292    52.96.191.98:443       ESTABLISHED
+  TCP    172.16.10.218:56659    54.164.104.246:443     ESTABLISHED
+  TCP    172.16.10.218:56765    34.107.243.93:443      TIME_WAIT
+  TCP    172.16.10.218:56766    34.107.243.93:443      ESTABLISHED
+  TCP    172.16.10.218:56768    104.18.95.41:443       ESTABLISHED
+  TCP    172.16.10.218:56773    151.101.65.91:443      ESTABLISHED
+  TCP    172.16.10.218:56774    151.101.193.91:443     ESTABLISHED
+  TCP    172.16.10.218:56776    192.178.163.84:443     ESTABLISHED
+  TCP    172.16.10.218:56777    142.251.34.202:443     ESTABLISHED
+  TCP    172.16.10.218:56779    142.251.34.202:443     ESTABLISHED
+  TCP    172.16.10.218:56782    160.79.104.10:443      ESTABLISHED
+  TCP    172.16.10.218:56784    3.212.138.249:443      ESTABLISHED
+  TCP    172.16.10.218:57661    160.79.104.10:443      ESTABLISHED
+  TCP    172.16.10.218:58574    4.150.223.108:443      ESTABLISHED
+  TCP    172.16.10.218:58610    16.145.255.196:443     ESTABLISHED
+  TCP    172.16.10.218:58611    16.145.255.196:443     ESTABLISHED
+  TCP    172.16.10.218:59146    104.18.41.41:443       ESTABLISHED
+  TCP    172.16.10.218:59342    74.125.195.94:443      ESTABLISHED
+  TCP    172.16.10.218:60169    142.251.34.202:443     TIME_WAIT
+  TCP    172.16.10.218:60266    52.112.87.229:443      ESTABLISHED
+  TCP    172.16.10.218:61445    162.159.61.4:443       ESTABLISHED
+  TCP    172.16.10.218:61454    52.85.129.32:443       ESTABLISHED
+  TCP    172.16.10.218:61499    150.171.110.146:443    ESTABLISHED
+  TCP    172.16.10.218:62532    160.79.104.10:443      ESTABLISHED
+  TCP    172.16.10.218:62734    160.79.104.10:443      ESTABLISHED
+  TCP    172.16.10.218:63902    3.223.171.65:443       TIME_WAIT
+  TCP    172.16.10.218:63903    140.82.114.26:443      ESTABLISHED
+  TCP    172.16.10.218:63915    142.250.107.139:443    ESTABLISHED
+  TCP    172.16.10.218:65314    162.159.130.234:443    ESTABLISHED
+  TCP    172.30.160.1:139       0.0.0.0:0              LISTENING
+  TCP    192.168.50.2:139       0.0.0.0:0              LISTENING
+  TCP    [::]:135               [::]:0                 LISTENING
+  TCP    [::]:445               [::]:0                 LISTENING
+  TCP    [::]:7680              [::]:0                 LISTENING
+  TCP    [::]:49664             [::]:0                 LISTENING
+  TCP    [::]:49665             [::]:0                 LISTENING
+  TCP    [::]:49666             [::]:0                 LISTENING
+  TCP    [::]:49667             [::]:0                 LISTENING
+  TCP    [::]:49668             [::]:0                 LISTENING
+  TCP    [::]:49669             [::]:0                 LISTENING
+  TCP    [::1]:3000             [::]:0                 LISTENING
+  TCP    [::1]:3000             [::1]:51358            ESTABLISHED
+  TCP    [::1]:42050            [::]:0                 LISTENING
+  TCP    [::1]:51358            [::1]:3000             ESTABLISHED
+  UDP    0.0.0.0:53             *:*                    
+  UDP    0.0.0.0:500            *:*                    
+  UDP    0.0.0.0:4500           *:*                    
+  UDP    0.0.0.0:5050           *:*                    
+  UDP    0.0.0.0:5353           *:*                    
+  UDP    0.0.0.0:5353           *:*                    
+  UDP    0.0.0.0:5353           *:*                    
+  UDP    0.0.0.0:5355           *:*                    
+  UDP    0.0.0.0:50070          *:*                    
+  UDP    0.0.0.0:50927          *:*                    
+  UDP    0.0.0.0:52760          *:*                    
+  UDP    0.0.0.0:55518          *:*                    
+  UDP    0.0.0.0:55519          *:*                    
+  UDP    127.0.0.1:1900         *:*                    
+  UDP    127.0.0.1:49664        127.0.0.1:49664        
+  UDP    127.0.0.1:64378        *:*                    
+  UDP    172.16.10.218:1900     *:*                    
+  UDP    172.16.10.218:64377    *:*                    
+  UDP    172.30.160.1:137       *:*                    
+  UDP    172.30.160.1:138       *:*                    
+  UDP    172.30.160.1:1900      *:*                    
+  UDP    172.30.160.1:64379     *:*                    
+  UDP    192.168.50.2:137       *:*                    
+  UDP    192.168.50.2:138       *:*                    
+  UDP    192.168.50.2:1900      *:*                    
+  UDP    192.168.50.2:64376     *:*                    
+  UDP    [::]:500               *:*                    
+  UDP    [::]:4500              *:*                    
+  UDP    [::]:5353              *:*                    
+  UDP    [::]:5353              *:*                    
+  UDP    [::]:5355              *:*                    
+  UDP    [::]:50070             *:*                    
+  UDP    [::]:50927             *:*                    
+  UDP    [::]:52760             *:*                    
+  UDP    [::]:55520             *:*                    
+  UDP    [::1]:1900             *:*                    
+  UDP    [::1]:64374            *:*                    
+  UDP    [fe80::2291:13e1:ead9:d1b6%17]:1900  *:*                    
+  UDP    [fe80::2291:13e1:ead9:d1b6%17]:64373  *:*                    
+  UDP    [fe80::a8e6:3dd0:cba4:cf33%44]:1900  *:*                    
+  UDP    [fe80::a8e6:3dd0:cba4:cf33%44]:64375  *:*                    
+  UDP    [fe80::cbd6:e192:1dc5:270d%50]:1900  *:*                    
+  UDP    [fe80::cbd6:e192:1dc5:270d%50]:64372  *:*                    
+
+### CMD: cat /etc/resolv.conf ###
+cat: /etc/resolv.conf: No such file or directory
+[exit status 1]
+
+### CMD: iptables -S ###
+[command not available on this system]
+
+### CMD: ipconfig /all ###
+
+Error: unrecognized or incomplete command line.
+
+USAGE:
+    ipconfig [/allcompartments] [/? | /all |
+                                 /renew [adapter] | /release [adapter] |
+                                 /renew6 [adapter] | /release6 [adapter] |
+                                 /flushdns | /displaydns | /registerdns |
+                                 /showclassid adapter |
+                                 /setclassid adapter [classid] |
+                                 /showclassid6 adapter |
+                                 /setclassid6 adapter [classid] ]
+
+where
+    adapter             Connection name
+                       (wildcard characters * and ? allowed, see examples)
+
+    Options:
+       /?               Display this help message
+       /all             Display full configuration information.
+       /release         Release the IPv4 address for the specified adapter.
+       /release6        Release the IPv6 address for the specified adapter.
+       /renew           Renew the IPv4 address for the specified adapter.
+       /renew6          Renew the IPv6 address for the specified adapter.
+       /flushdns        Purges the DNS Resolver cache.
+       /registerdns     Refreshes all DHCP leases and re-registers DNS names
+       /displaydns      Display the contents of the DNS Resolver Cache.
+       /showclassid     Displays all the dhcp class IDs allowed for adapter.
+       /setclassid      Modifies the dhcp class id.
+       /showclassid6    Displays all the IPv6 DHCP class IDs allowed for adapter.
+       /setclassid6     Modifies the IPv6 DHCP class id.
+
+
+The default is to display only the IP address, subnet mask and
+default gateway for each adapter bound to TCP/IP.
+
+For Release and Renew, if no adapter name is specified, then the IP address
+leases for all adapters bound to TCP/IP will be released or renewed.
+
+For Setclassid and Setclassid6, if no ClassId is specified, then the ClassId is removed.
+
+Examples:
+    > ipconfig                       ... Show information
+    > ipconfig /all                  ... Show detailed information
+    > ipconfig /renew                ... renew all adapters
+    > ipconfig /renew EL*            ... renew any connection that has its
+                                         name starting with EL
+    > ipconfig /release *Con*        ... release all matching connections,
+                                         eg. "Wired Ethernet Connection 1" or
+                                             "Wired Ethernet Connection 2"
+    > ipconfig /allcompartments      ... Show information about all
+                                         compartments
+    > ipconfig /allcompartments /all ... Show detailed information about all
+                                         compartments
+[exit status 1]
+

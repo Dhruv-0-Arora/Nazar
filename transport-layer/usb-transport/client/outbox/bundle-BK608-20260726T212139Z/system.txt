@@ -1,0 +1,24 @@
+### CMD: uname -a ###
+MINGW64_NT-10.0-26200 BK608 3.6.5-22c95533.x86_64 2025-10-10 12:02 UTC x86_64 Msys
+
+### CMD: uptime ###
+[command not available on this system]
+
+### CMD: df -h ###
+Filesystem      Size  Used Avail Use% Mounted on
+C:/myapps/Git   1.9T  528G  1.4T  28% /
+
+### CMD: free -m ###
+[command not available on this system]
+
+### CMD: systemctl --failed --no-pager ###
+[command not available on this system]
+
+### CMD: ps aux ###
+      PID    PPID    PGID     WINPID   TTY         UID    STIME COMMAND
+      553       1     553      29596  cons1     197610 14:05:32 /usr/bin/bash
+      785       1     785      19792  ?         197610 14:21:38 /usr/bin/bash
+      789     785     785      38576  ?         197610 14:21:38 /usr/bin/bash
+      790     785     785      12888  ?         197610 14:21:38 /usr/bin/tail
+      805     789     785      64012  ?         197610 14:21:39 /usr/bin/ps
+
