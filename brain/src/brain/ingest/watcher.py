@@ -11,6 +11,7 @@ import time
 
 from ..config import Config
 from ..runs import RunRegistry
+from . import usb
 from .bundle import BundleError, load_manifest, validate_bundle
 
 
@@ -57,6 +58,13 @@ async def watch_loop(cfg: Config, registry: RunRegistry) -> None:
 
     while True:
         try:
+            # usb auto-intake: a plugged-in client stick with unreceived bundles
+            # gets received + normalized, then flows through the normal scan below
+            if cfg.usb_watch:
+                for src in usb.candidate_sources(cfg):
+                    if usb.pending_bundles(src, cfg):
+                        usb.receive(src, cfg)
+
             for d in sorted(cfg.inbox.glob("bundle-*")):
                 if not d.is_dir() or d.name in known:
                     continue

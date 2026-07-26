@@ -15,6 +15,7 @@ All API routes live under `/api/` to avoid colliding with UI routes.
 | GET | `/api/healthz` | liveness + Ollama reachability |
 | GET | `/api/bundles` | list bundles known to the inbox |
 | POST | `/api/runs` | start a diagnosis run on a set of bundles |
+| POST | `/api/usb/receive` | receive + normalize bundles from a client USB stick |
 | GET | `/api/runs` | list runs with status |
 | GET | `/api/runs/{run_id}` | full run detail incl. report when done |
 | GET | `/api/runs/{run_id}/stream` | SSE live event stream |
@@ -60,8 +61,23 @@ Request:
 - `bundle_ids` optional. Default: every `ready` bundle not yet part of a run.
   A run always operates on a case, i.e. a set of bundles indexed together (see [ADR-0006](docs/decisions/ADR-0006-case-based-runs.md)).
 - `question` optional. Default prompt asks for general diagnosis of the collected machines.
+- `full_context` optional tri-state (see [ADR-0012](docs/decisions/ADR-0012-usb-intake-full-context.md)): omitted/`null` = auto (on when any bundle arrived via USB, detected from its `receipt.json`); `true`/`false` force it. When on, the entire case content is injected into the agent's first message, chunk-ID delimited.
 
-Response: `202` with `{"run_id": "run-20260726T184501Z-a1b2"}`.
+Response: `202` with `{"run_id": "run-20260726T184501Z-a1b2", "full_context": true}`.
+
+### POST /api/usb/receive
+
+Request: `{"source": "/media/fde/STICK"}`; `source` optional (default: auto-discover mounted client sticks).
+The source may be the stick root, the `client/` folder, or the `outbox` itself.
+Runs the transport layer's `receive_bundle.py`, normalizes verified bundles to this contract, and deposits them atomically.
+
+Response `200`:
+
+```json
+{"received": ["bundle-bk608-20260726T212139Z"], "skipped": [], "errors": [], "summary": "<receiver stdout>"}
+```
+
+`404` when no source is found or nothing could be received (detail carries the errors).
 
 ### GET /api/runs
 

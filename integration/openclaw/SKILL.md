@@ -17,10 +17,11 @@ You are the operator interface only: you never diagnose yourself, never talk to 
 ## Workflow
 
 1. `brainctl health` - confirm the Brain and its model are up before anything else.
-2. `brainctl bundles` - show what evidence has arrived; bundles with `"state": "rejected"` include a `reason` to relay verbatim.
-3. `brainctl diagnose [bundle_id...] [-q "question"]` - start a run; returns a `run_id`. With no bundle ids it runs on every unused ready bundle, which is usually what the operator wants.
-4. `brainctl watch <run_id>` - stream the reasoning trail; relay interesting lines (queries issued, chunks retrieved, hypotheses confirmed or ruled out) as they happen.
-5. `brainctl report <run_id>` - once done, fetch the report markdown.
+2. USB transport (FDE on site with a client stick): run `brainctl usb` right after the stick is plugged in. It runs the transport receiver, verifies hashes, and lands the client folder's bundles in the inbox; relay its summary. The watcher also does this automatically, so if `brainctl bundles` already shows the stick's bundles, skip this step.
+3. `brainctl bundles` - show what evidence has arrived; bundles with `"state": "rejected"` include a `reason` to relay verbatim.
+4. `brainctl diagnose [bundle_id...] [-q "question"]` - start a run; returns a `run_id`. With no bundle ids it runs on every unused ready bundle, which is usually what the operator wants. USB-received bundles automatically get full-context mode: the client folder's entire contents are injected into the diagnosis agent's context window (override with `--full` / `--no-full`).
+5. `brainctl watch <run_id>` - stream the reasoning trail; relay interesting lines (queries issued, chunks retrieved, hypotheses confirmed or ruled out) as they happen.
+6. `brainctl report <run_id>` - once done, fetch the report markdown.
 
 ## Reporting rules
 

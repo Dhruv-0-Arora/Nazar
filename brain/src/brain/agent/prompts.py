@@ -44,12 +44,17 @@ FINAL_INSTRUCTION = """Now produce your final report as ONE JSON object, nothing
 Cite only chunk ids that appeared in earlier results. The fix script is advisory and will be reviewed by a human, never auto-executed."""
 
 
-def initial_user(case_summary: str, question: str, turns: int) -> str:
-    return (
-        f"CASE:\n{case_summary}\n\n"
-        f"QUESTION: {question}\n\n"
-        f"You have {turns} action turns before you must conclude. Begin: state hypotheses and issue searches."
-    )
+def initial_user(case_summary: str, question: str, turns: int, full_context_block: str | None = None) -> str:
+    msg = f"CASE:\n{case_summary}\n\nQUESTION: {question}\n\n"
+    if full_context_block:
+        msg += (
+            "FULL CLIENT CONTEXT (usb transport): every collected file follows, delimited by its chunk id. "
+            "You already hold the evidence; cite these chunk ids directly. "
+            "Use search/expand only for anything omitted below.\n\n"
+            f"{full_context_block}\n\n"
+        )
+    msg += f"You have {turns} action turns before you must conclude. Begin: state hypotheses and issue searches."
+    return msg
 
 
 def format_case_summary(manifests, system_digests: dict[str, str]) -> str:

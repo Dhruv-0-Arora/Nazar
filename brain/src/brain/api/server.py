@@ -29,7 +29,7 @@ def default_ui_dist() -> Path:
 
 def create_app(cfg: Config | None = None, llm=None) -> FastAPI:
     cfg = cfg or load_config()
-    llm = llm or OllamaLLM(cfg.ollama_url, cfg.model, cfg.llm_timeout_s)
+    llm = llm or OllamaLLM(cfg.ollama_url, cfg.model, cfg.llm_timeout_s, cfg.num_ctx)
     cfg.ensure_dirs()
     registry = RunRegistry(cfg, llm)
 

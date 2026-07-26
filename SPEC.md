@@ -57,8 +57,9 @@ whackathon/
 │   │   ├── cli.py              console entry: brain serve | pull <host..> | ingest <path> | graph ..
 │   │   ├── llm.py              the ONLY module that talks to Ollama
 │   │   ├── ingest/
-│   │   │   ├── watcher.py      inbox polling + case grouping
+│   │   │   ├── watcher.py      inbox polling + case grouping + usb auto-scan
 │   │   │   ├── bundle.py       CONTRACT.md validation, manifest parsing
+│   │   │   ├── usb.py          usb-stick intake: runs receive_bundle.py, normalizes (ADR-0012)
 │   │   │   └── chunker.py      deterministic structure-aware chunking
 │   │   ├── index/
 │   │   │   └── bm25.py         rank_bm25 wrapper, search(query, k)
@@ -88,7 +89,12 @@ whackathon/
 │       ├── views/              RunsList, LiveRun, ReportView
 │       └── graph/              sigma renderer + delta patcher
 ├── integration/
-│   └── openclaw/               operator-layer skill: SKILL.md + brainctl (section 15)
+│   └── openclaw/               operator-layer skill: SKILL.md + brainctl (section 14)
+├── transport-layer/
+│   └── usb-transport/          FDE client stick (transport owner): setup + collectors
+│       ├── client/             ships on the stick; outbox/ receives collected bundles
+│       └── workstation/        receive_bundle.py - verifier the Brain's usb intake wraps
+├── eval/                       reliability harness: run_eval.py + grading.py (section 10)
 └── .gitignore                  ignores runs/, inbox contents, node_modules
 ```
 
@@ -276,7 +282,7 @@ This is the move BM25 cannot make: lexical search finds the symptom chunk, the g
 
 ### 7.3 Turn budget and termination
 
-- Turn 1 input: manifest summaries + `system.txt` digests for every bundle in the case + the question.
+- Turn 1 input: manifest summaries + `system.txt` digests for every bundle in the case + the question. For USB-sourced cases (full-context mode, [ADR-0012](docs/decisions/ADR-0012-usb-intake-full-context.md)), turn 1 additionally carries every chunk verbatim, chunk-ID delimited, evidence before knowledge, capped by `BRAIN_FULL_CTX_CHARS`; `llm.py` pins `options.num_ctx` (`BRAIN_NUM_CTX`) so the injection cannot silently overflow Ollama's window.
 - Max `BRAIN_MAX_TURNS` (default 5) action turns; the `turns_remaining` counter is in every feedback message; at 0 the loop forces `conclude`.
 - Conclude turn: thinking optionally enabled, streaming on, model emits the report JSON (API.md section 3). `report.py` validates; on schema failure the loop retries once with the validation errors appended; on second failure the run is marked `failed` with the raw output preserved in `runs/`.
 - Malformed intermediate JSON: re-prompt with the parse error, max 2 retries per turn, then skip the turn (counts against budget).
@@ -327,7 +333,8 @@ Client-side rules (binding): rAF-batched token flush; seq-number dedupe on SSE r
 └── raw/               unvalidated model outputs per turn (debugging)
 ```
 
-Grading: compare `report.json.root_cause` against `scenario/ground_truth.md` by eye; iterate `prompts.py` until reliably correct.
+Grading: `eval/run_eval.py` runs N independent real-model trials of a case and auto-grades each `report.json` against the criteria from `scenario/ground_truth.md` (`eval/grading.py`); iterate `prompts.py` until the hit rate holds.
+`BRAIN_THINK_FINAL` (config) toggles thinking on the conclude turn; the harness's `--thinking` flag drives the OPEN-QUESTIONS #4 A/B.
 Every run is a future eval case and fine-tuning example.
 
 ## 11. Error handling summary

@@ -25,6 +25,7 @@ Offline diagnostic "Brain": client machines are packaged into bundles by a bash 
   - `api/` - routes from API.md; also serves the built UI.
 - `ui/` - React + sigma.js + TypeScript (Vite), built static, served by the brain service on port 8000. `npm run mock` demos the full UI with no backend.
 - `integration/openclaw/` - operator layer (ADR-0011): `brainctl` CLI wrapping the Brain API + the OpenClaw `SKILL.md` + `install.sh`.
+- `transport-layer/usb-transport/` - FDE client stick (transport owner): interactive setup + collectors (bash/PowerShell) writing to `client/outbox/`, and `workstation/receive_bundle.py`. The Brain's `ingest/usb.py` wraps the receiver and normalizes its bundle dialect to CONTRACT v1.0; USB-received runs default to full-context injection (ADR-0012).
 - Runtime state is NOT in the repo: `~/brain/inbox/` and `~/brain/runs/` (`$BRAIN_HOME`).
 
 ## Conventions and invariants
@@ -48,7 +49,8 @@ Brain: NVIDIA GB10, 120 GB unified memory, Ubuntu. Python 3.12.3, Node, Ollama w
 - UI: `cd ui && npm install && npm run build` (output ui/dist, auto-served by brain); dev: `npm run dev`; no-backend demo: `npm run mock`.
 - Scenario: `scenario/run-local.sh` starts mock-db + backend + frontend locally; `scenario/inject.sh` plants the bug; `scenario/revert.sh` heals it.
 - Collector: `./collector/collector.sh -o ~/bundles --services "backend" [--push <brain-host>]`.
-- Operator: `integration/openclaw/brainctl health|bundles|diagnose|watch|report`.
+- Operator: `integration/openclaw/brainctl health|bundles|usb|diagnose|watch|report`.
+- Eval: `brain/.venv/bin/python eval/run_eval.py --trials 5 [--thinking]` - real-model reliability runs auto-graded against ground truth; results in `eval/results/` (gitignored).
 
 ## Current phase
 

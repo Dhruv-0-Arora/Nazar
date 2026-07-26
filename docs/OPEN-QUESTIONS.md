@@ -44,14 +44,7 @@ ADR-0006 supports both (debounce auto-run, manual button).
 For the stage demo, manual is safer (press when both bundles are visibly in); auto is more impressive ("it just noticed").
 Needs: a rehearsal-time call; the code supports both either way.
 
-## 7. Collector: fixed capture set vs interactive setup
-
-PLAN M2 sketches an interactive setup CLI asking the user which files and which log file on the server to track.
-The spec instead fixes the capture set in CONTRACT.md (standard commands, `services/`, `app_logs/`, `/opt/company-docs/`) with no interactivity, because a deterministic bundle layout is what the chunker, the contract, and demo rehearsals depend on.
-Proposal: fixed set for MVP, plus an `EXTRA_PATHS` variable at the top of collector.sh for ad-hoc additions that land under `app_logs/`.
-Needs: confirmation that interactive setup is dropped from MVP.
-
-## 8. Bundle copies in runs/
+## 7. Bundle copies in runs/
 
 SPEC stores a verbatim copy of each case's bundles in `runs/<run_id>/bundles/` for reproducibility (PLAN M3: "every run saves the bundle copy").
 If disk churn on the Brain becomes a concern with many runs, switch to hard-links or references.

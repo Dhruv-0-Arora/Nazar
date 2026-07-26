@@ -36,6 +36,7 @@ class RunContext:
     dir: Path
     bundle_ids: list[str]
     question: str
+    full_context: bool = False  # usb transport: inject whole bundles into turn 1 (ADR-0012)
     status: str = "queued"
     error: str | None = None
     started_at: str = ""
@@ -54,6 +55,7 @@ class RunContext:
             "status": self.status,
             "bundle_ids": self.bundle_ids,
             "question": self.question,
+            "full_context": self.full_context,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "elapsed_s": round(self.elapsed_s, 2),
@@ -79,6 +81,10 @@ def execute_run(ctx: RunContext, cfg: Config, llm) -> None:
 
     try:
         retriever, manifests = _ingest(ctx, ev)
+        full_block = None
+        if ctx.full_context:
+            full_block, included, omitted = _render_full_context(retriever.chunk_store, cfg.full_ctx_chars)
+            ev.emit("status", {"turn": 0, "state": f"full-context: {included} chunks injected, {omitted} omitted"})
         messages = [
             {"role": "system", "content": prompts.SYSTEM},
             {
@@ -87,6 +93,7 @@ def execute_run(ctx: RunContext, cfg: Config, llm) -> None:
                     prompts.format_case_summary(manifests, _system_digests(retriever.chunk_store)),
                     ctx.question,
                     cfg.max_turns,
+                    full_context_block=full_block,
                 ),
             },
         ]
@@ -236,7 +243,7 @@ def _conclude(ctx: RunContext, cfg: Config, llm, messages: list[dict], retriever
 
     result = llm.chat_stream(
         messages,
-        thinking=False,
+        thinking=cfg.think_final,
         on_token=lambda text, kind: ev.emit("token", {"turn": final_turn, "text": text, "kind": kind}),
     )
     (raw_dir / "conclude-attempt-0.txt").write_text(result.text, encoding="utf-8")
@@ -254,6 +261,26 @@ def _conclude(ctx: RunContext, cfg: Config, llm, messages: list[dict], retriever
     for w in warnings:
         ev.emit("status", {"turn": final_turn, "state": f"warning: {w}"})
     return report
+
+
+def _render_full_context(chunk_store: dict[str, Chunk], max_chars: int) -> tuple[str, int, int]:
+    """Whole-bundle injection for usb-mode runs: every chunk verbatim, delimited
+    by its chunk id so the citation system keeps working. Evidence outranks
+    knowledge when the budget forces omissions."""
+    ordered = sorted(chunk_store.values(), key=lambda c: (c.kind != "evidence", c.id))
+    parts: list[str] = []
+    used = 0
+    omitted = 0
+    for chunk in ordered:
+        block = f"----- {chunk.id} -----\n{chunk.text}\n"
+        if used + len(block) > max_chars:
+            omitted += 1
+            continue
+        used += len(block)
+        parts.append(block)
+    if omitted:
+        parts.append(f"[{omitted} chunks omitted for length - retrieve them with search/expand]")
+    return "".join(parts), len(ordered) - omitted, omitted
 
 
 # ---------- helpers ----------

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from .. import __version__
 from ..config import Config
 from ..events import TERMINAL_EVENTS, read_events
+from ..ingest import usb
 from ..ingest.watcher import list_bundles
 from ..runs import RunRegistry
 
@@ -19,6 +20,11 @@ SSE_POLL_S = 0.2
 class RunRequest(BaseModel):
     bundle_ids: list[str] | None = None
     question: str = Field(default="Diagnose the collected machines: find the root cause of any failure and propose a fix.")
+    full_context: bool | None = None  # None = auto (usb-received bundles get it)
+
+
+class UsbReceiveRequest(BaseModel):
+    source: str | None = None  # None = auto-discover mounted client sticks
 
 
 def create_router(cfg: Config, registry: RunRegistry, llm) -> APIRouter:
@@ -42,11 +48,18 @@ def create_router(cfg: Config, registry: RunRegistry, llm) -> APIRouter:
         if not bundle_ids:
             raise HTTPException(status_code=400, detail="no ready bundles to run on")
         try:
-            ctx = registry.create_run(bundle_ids, body.question)
+            ctx = registry.create_run(bundle_ids, body.question, full_context=body.full_context)
         except FileNotFoundError as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
         registry.launch(ctx)
-        return {"run_id": ctx.run_id}
+        return {"run_id": ctx.run_id, "full_context": ctx.full_context}
+
+    @router.post("/usb/receive")
+    async def usb_receive(body: UsbReceiveRequest) -> dict:
+        result = await asyncio.to_thread(usb.receive, body.source, cfg)
+        if not result["received"] and result["errors"]:
+            raise HTTPException(status_code=404, detail="; ".join(result["errors"]))
+        return result
 
     @router.get("/runs")
     async def runs() -> list[dict]:

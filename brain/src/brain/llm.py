@@ -24,10 +24,13 @@ class LLMError(Exception):
 
 
 class OllamaLLM:
-    def __init__(self, url: str, model: str, timeout_s: float = 120.0):
+    def __init__(self, url: str, model: str, timeout_s: float = 120.0, num_ctx: int = 32768):
         self.url = url.rstrip("/")
         self.model = model
         self.timeout_s = timeout_s
+        # explicit context window: full-context mode (ADR-0012) silently
+        # overflows Ollama's default num_ctx otherwise
+        self.num_ctx = num_ctx
 
     def ping(self) -> str:
         """Return 'ok' or an error string (never raises). Used by /api/healthz."""
@@ -47,6 +50,7 @@ class OllamaLLM:
             "messages": messages,
             "stream": False,
             "think": thinking,
+            "options": {"num_ctx": self.num_ctx},
         }
         if json_format:
             payload["format"] = "json"
@@ -71,7 +75,7 @@ class OllamaLLM:
         on_token: Callable[[str, str], None] = lambda text, kind: None,
     ) -> ChatResult:
         """Stream tokens via on_token(text, kind) where kind is 'report' or 'thinking'."""
-        payload = {"model": self.model, "messages": messages, "stream": True, "think": thinking}
+        payload = {"model": self.model, "messages": messages, "stream": True, "think": thinking, "options": {"num_ctx": self.num_ctx}}
         text_parts: list[str] = []
         eval_count = 0
         eval_duration_s = 0.0

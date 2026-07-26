@@ -33,6 +33,8 @@ def cfg(tmp_path) -> Config:
         parallel=1,
         autorun=False,
         llm_timeout_s=5,
+        think_final=False,
+        usb_watch=False,  # tests drive usb.receive explicitly
     )
     c.ensure_dirs()
     return c

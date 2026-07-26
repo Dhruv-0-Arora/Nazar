@@ -111,6 +111,7 @@ It ignores `.staging/` and any dotfile.
 - SSH pull mode: `collector.sh` writes the bundle to `~/bundles/` on the client (override with `-o <dir>`); the operator runs `brain pull <host>` on the Brain, which fetches the newest `bundle-*` from that directory (manifest first, then the whole bundle) and performs both steps.
 - scp push mode: the client scp's into `.staging/` and then runs `ssh brain mv ...` (the last two lines of `collector.sh`).
 - USB mode: the operator runs `brain ingest /media/usb/bundle-<...>` on the Brain, which performs the two steps.
+- USB client-stick variant: bundles produced by `transport-layer/usb-transport/` speak a manifest dialect that does NOT conform to this contract; they enter exclusively through the Brain's USB intake (`brainctl usb`, `POST /api/usb/receive`, or the watcher's auto-scan), which runs the stick's `receive_bundle.py` verifier and then normalizes each bundle to this contract before the atomic deposit (see [ADR-0012](docs/decisions/ADR-0012-usb-intake-full-context.md)). The original manifest is preserved inside the bundle as `manifest.usb.json`.
 
 A bundle that fails validation (missing manifest, bad `contract_version`, oversize) is moved to `$BRAIN_INBOX/rejected/<bundle_id>/` with a `reject-reason.txt` beside it.
 It is never silently dropped.

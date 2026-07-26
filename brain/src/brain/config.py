@@ -17,6 +17,11 @@ class Config:
     parallel: int
     autorun: bool
     llm_timeout_s: float
+    think_final: bool  # thinking mode on the conclude turn (OPEN-QUESTIONS #4)
+    usb_watch: bool = True  # auto-scan for plugged-in client sticks (ADR-0012)
+    usb_sources: tuple[str, ...] = ()  # extra outbox paths beyond mount globs
+    full_ctx_chars: int = 300_000  # budget for full-context injection
+    num_ctx: int = 32_768  # ollama context window; full-context mode needs headroom
 
     @property
     def inbox(self) -> Path:
@@ -52,4 +57,9 @@ def load_config() -> Config:
         parallel=int(env.get("OLLAMA_NUM_PARALLEL", "1")),
         autorun=env.get("BRAIN_AUTORUN", "1") not in ("0", "false", "no"),
         llm_timeout_s=float(env.get("BRAIN_LLM_TIMEOUT_S", "120")),
+        think_final=env.get("BRAIN_THINK_FINAL", "0") in ("1", "true", "yes"),
+        usb_watch=env.get("BRAIN_USB_WATCH", "1") not in ("0", "false", "no"),
+        usb_sources=tuple(p for p in env.get("BRAIN_USB_SOURCES", "").split(":") if p),
+        full_ctx_chars=int(env.get("BRAIN_FULL_CTX_CHARS", "300000")),
+        num_ctx=int(env.get("BRAIN_NUM_CTX", "32768")),
     )

@@ -11,8 +11,11 @@ usage: brainctl <command> [args]
 
   health                        Brain + Ollama status
   bundles                       list bundles known to the inbox
+  usb [source]                  receive bundles from a plugged-in client stick
+                                (default: auto-discover mounted sticks)
   diagnose [bundle_id...]       start a run (default: all unused ready bundles)
-           [-q "question"]
+           [-q "question"] [--full | --no-full]   full-context injection
+                                (default: auto - on for usb-received bundles)
   runs                          list runs with status
   watch <run_id>                follow the live event stream, print the trail
   report <run_id>               print the finished report markdown
@@ -37,21 +40,35 @@ case "$cmd" in
   runs)
     api runs | pretty
     ;;
+  usb)
+    if [ $# -ge 1 ]; then
+      body="{\"source\": \"$1\"}"
+    else
+      body="{}"
+    fi
+    api usb/receive -X POST -H 'Content-Type: application/json' -d "$body" | pretty
+    ;;
   diagnose)
     question="Diagnose the collected machines: find the root cause of any failure and propose a fix."
     ids=()
+    full=""
     while [ $# -gt 0 ]; do
       case "$1" in
         -q) question="$2"; shift 2 ;;
+        --full) full="true"; shift ;;
+        --no-full) full="false"; shift ;;
         *) ids+=("$1"); shift ;;
       esac
     done
+    body="{\"question\": \"${question}\""
     if [ ${#ids[@]} -gt 0 ]; then
       id_json=$(printf '"%s",' "${ids[@]}")
-      body="{\"bundle_ids\": [${id_json%,}], \"question\": \"${question}\"}"
-    else
-      body="{\"question\": \"${question}\"}"
+      body="${body}, \"bundle_ids\": [${id_json%,}]"
     fi
+    if [ -n "$full" ]; then
+      body="${body}, \"full_context\": ${full}"
+    fi
+    body="${body}}"
     api runs -X POST -H 'Content-Type: application/json' -d "$body" | pretty
     ;;
   watch)

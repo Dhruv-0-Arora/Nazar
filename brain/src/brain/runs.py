@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .agent.loop import RunContext, execute_run
 from .config import Config
+from .ingest.usb import is_usb_bundle
 
 
 class RunRegistry:
@@ -21,7 +22,7 @@ class RunRegistry:
 
     # ---------- lifecycle ----------
 
-    def create_run(self, bundle_ids: list[str], question: str) -> RunContext:
+    def create_run(self, bundle_ids: list[str], question: str, full_context: bool | None = None) -> RunContext:
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         run_id = f"run-{ts}-{uuid.uuid4().hex[:4]}"
         run_dir = self.cfg.runs / run_id
@@ -31,7 +32,10 @@ class RunRegistry:
             if not src.is_dir():
                 raise FileNotFoundError(f"bundle {bid} not found in inbox")
             shutil.copytree(src, run_dir / "bundles" / bid)
-        ctx = RunContext(run_id=run_id, dir=run_dir, bundle_ids=list(bundle_ids), question=question)
+        if full_context is None:
+            # FDE-on-site default: usb-received bundles get whole-bundle injection (ADR-0012)
+            full_context = any(is_usb_bundle(self.cfg.inbox / bid) for bid in bundle_ids)
+        ctx = RunContext(run_id=run_id, dir=run_dir, bundle_ids=list(bundle_ids), question=question, full_context=full_context)
         ctx.save_meta()
         self._live[run_id] = ctx
         return ctx
