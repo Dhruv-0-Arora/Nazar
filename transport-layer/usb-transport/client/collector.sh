@@ -16,17 +16,29 @@ CONTRACT_VERSION="1.0"
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONF="$SCRIPT_DIR/collect.conf"
+
+# machine_id per CONTRACT.md section 1: lowercase [a-z0-9-]+, no dots or
+# underscores. NAZAR_MACHINE_ID overrides the hostname (dry-runs). Config is
+# per device so one stick can serve several laptops.
+machine_id() {
+    local raw
+    raw="${NAZAR_MACHINE_ID:-$(hostname 2>/dev/null || echo unknown-host)}"
+    printf '%s' "$raw" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/--*/-/g; s/^-//; s/-$//'
+}
+HOST="$(machine_id)"
+[ -n "$HOST" ] || HOST="unknown-host"
+
+CONF="$SCRIPT_DIR/collect-$HOST.conf"
 OUTBOX="$SCRIPT_DIR/outbox"
 
 usage() {
     cat <<'EOF'
 Usage: collector.sh [--conf FILE] [--outbox DIR]
 
-Builds bundle-<hostname>-<timestamp>/ inside the outbox from the targets
-registered in collect.conf (created by setup.sh).
+Builds bundle-<machine_id>-<timestamp>/ inside the outbox from the targets
+registered by setup.sh for THIS device (collect-<machine_id>.conf).
 
-  --conf FILE    config file to use (default: collect.conf next to this script)
+  --conf FILE    config file to use (default: collect-<machine_id>.conf next to this script)
   --outbox DIR   where to write the bundle (default: outbox/ next to this script)
 EOF
 }
@@ -97,10 +109,6 @@ file_bytes() { wc -c < "$1" | tr -d '[:space:]'; }
 
 # ---------------------------------------------------------------- prepare ---
 
-HOST_RAW="$(hostname 2>/dev/null || echo unknown-host)"
-# machine_id per CONTRACT.md section 1: lowercase [a-z0-9-]+, no dots/underscores
-HOST="$(printf '%s' "$HOST_RAW" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/--*/-/g; s/^-//; s/-$//')"
-[ -n "$HOST" ] || HOST="unknown-host"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 CREATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 OS_DESC="$(uname -srm 2>/dev/null || echo unknown-os)"
