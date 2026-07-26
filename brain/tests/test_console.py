@@ -97,6 +97,26 @@ def test_context_roundtrip_and_injection_into_question(cfg):
     assert "generator power" in llm.calls[0][1]["content"]
 
 
+def test_snapshot_is_byte_stable_across_builds(cfg):
+    """SSE change-detection and React render keys require identical state to
+    produce identical frames - no now() timestamps or unstable ids."""
+    seed(cfg)
+    app = create_app(cfg, llm=FakeLLM(scripted_diagnosis()))
+    with TestClient(app) as client:
+        with client.stream("POST", "/api/chat", json={"text": "diagnose"}) as resp:
+            for _ in resp.iter_lines():
+                pass
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if client.get("/api/snapshot").json()["run"]["phase"] in ("resolved", "failed"):
+                break
+            time.sleep(0.05)
+        a = client.get("/api/snapshot").text
+        time.sleep(1.1)  # cross a wall-clock second boundary
+        b = client.get("/api/snapshot").text
+    assert a == b
+
+
 def test_chat_without_bundles_answers_gracefully(cfg):
     app = create_app(cfg, llm=FakeLLM([]))
     with TestClient(app) as client:

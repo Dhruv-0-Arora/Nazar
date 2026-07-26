@@ -70,12 +70,14 @@ def create_console_router(cfg: Config, registry: RunRegistry) -> APIRouter:
                 events = await asyncio.to_thread(read_events, registry.run_dir(run_id) / "events.jsonl", sent)
                 for e in events:
                     sent = e.seq
-                    trace = _event_to_trace(e.event, e.data)
+                    trace = _event_to_trace(e.event, e.data, e.seq, e.ts)
                     if trace:
                         yield _nd(trace)
                     if e.event in ("done", "error"):
                         report, _md, _metrics = registry.get_report(run_id)
-                        yield _nd(_trace("answer", _answer_text(report, e.event, e.data), citations=[x["chunk_id"] for x in (report or {}).get("evidence", [])]))
+                        yield _nd(_trace("answer", _answer_text(report, e.event, e.data),
+                                         citations=[x["chunk_id"] for x in (report or {}).get("evidence", [])],
+                                         ts=e.ts, id_=f"tr-answer-{run_id}"))
                         return
                 await asyncio.sleep(0.3)
 
@@ -120,7 +122,9 @@ def build_snapshot(cfg: Config, registry: RunRegistry) -> dict:
         "logs": _logs(chunks),
         "graph": _graph(registry, run_id, chunks, cited, scores),
         "steps": _steps(events, run),
-        "trace": [t for t in (_event_to_trace(e.event, e.data) for e in events) if t] + ([_trace("answer", _answer_text(report, "done", {}), citations=sorted(c for c in cited if c))] if report else []),
+        "trace": [t for t in (_event_to_trace(e.event, e.data, e.seq, e.ts) for e in events) if t]
+        + ([_trace("answer", _answer_text(report, "done", {}), citations=sorted(c for c in cited if c),
+                   ts=(run or {}).get("finished_at"), id_=f"tr-answer-{run_id}")] if report else []),
         "diagnosis": _diagnosis(report),
         "globalContext": _context_path(cfg).read_text(encoding="utf-8") if _context_path(cfg).is_file() else "",
     }
@@ -276,16 +280,17 @@ def _steps(events, run: dict | None) -> list[dict]:
     return steps
 
 
-def _event_to_trace(event: str, data: dict) -> dict | None:
+def _event_to_trace(event: str, data: dict, seq: int = 0, ts: float = 0.0) -> dict | None:
+    id_ = f"tr-{seq}" if seq else None
     if event == "query":
-        return _trace("query", f'search "{data.get("q")}" (k={data.get("k")})')
+        return _trace("query", f'search "{data.get("q")}" (k={data.get("k")})', ts=ts, id_=id_)
     if event == "chunk":
-        return _trace("retrieval", f'{data.get("file")} [{data.get("via")}]', citations=[data.get("cid")])
+        return _trace("retrieval", f'{data.get("file")} [{data.get("via")}]', citations=[data.get("cid")], ts=ts, id_=id_)
     if event == "status" and data.get("state") == "thinking":
-        return _trace("thought", f"Turn {data.get('turn')}: forming and testing hypotheses")
+        return _trace("thought", f"Turn {data.get('turn')}: forming and testing hypotheses", ts=ts, id_=id_)
     if event == "graph" and data.get("op") == "add_node" and data.get("node", {}).get("layer") == "reasoning":
         node = data["node"]
-        return _trace("thought", f'{node.get("type")}: {node.get("label")}', citations=node.get("evidence", []))
+        return _trace("thought", f'{node.get("type")}: {node.get("label")}', citations=node.get("evidence", []), ts=ts, id_=id_)
     return None
 
 
@@ -346,12 +351,21 @@ def _retrieval_scores(events) -> dict:
     return scores
 
 
-def _trace(kind: str, text: str, citations: list | None = None) -> dict:
+def _trace(kind: str, text: str, citations: list | None = None, ts: float | str | None = None, id_: str | None = None) -> dict:
+    """Timestamps and ids must be STABLE across snapshot builds: the SSE
+    change-detection (and the UI's render keys) depend on identical state
+    producing identical frames. Only genuinely-live traces may default to now."""
+    if isinstance(ts, (int, float)) and ts:
+        stamp = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(timespec="seconds")
+    elif isinstance(ts, str) and ts:
+        stamp = ts
+    else:
+        stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     return {
-        "id": f"tr-{abs(hash((kind, text))) % 10**10}",
+        "id": id_ or f"tr-{abs(hash((kind, text))) % 10**10}",
         "kind": kind,
         "text": text,
-        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "timestamp": stamp,
         "citations": [c for c in (citations or []) if c],
     }
 

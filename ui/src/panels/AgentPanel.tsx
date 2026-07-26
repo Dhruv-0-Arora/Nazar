@@ -16,7 +16,8 @@ const KIND_STYLE: Record<TraceKind, { label: string; className: string }> = {
 };
 
 function Transcript() {
-  const trace = useStore((s) => s.snapshot?.trace ?? []);
+  // stable selector outputs only (zustand v5); default outside the selector
+  const trace = useStore((s) => s.snapshot?.trace) ?? [];
   const focusChunk = useStore((s) => s.focusChunk);
   const endRef = useRef<HTMLDivElement>(null);
 

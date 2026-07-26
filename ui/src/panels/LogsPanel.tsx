@@ -14,8 +14,9 @@ const SEVERITY_STYLE: Record<Severity, string> = {
 };
 
 export function LogsPanel() {
-  const logs = useStore((s) => s.snapshot?.logs ?? []);
-  const machines = useStore((s) => s.snapshot?.machines ?? []);
+  // stable selector outputs only (zustand v5); default outside the selector
+  const logs = useStore((s) => s.snapshot?.logs) ?? [];
+  const machines = useStore((s) => s.snapshot?.machines) ?? [];
   const selectedMachine = useStore((s) => s.selectedMachine);
   const [minSeverity, setMinSeverity] = useState<Severity>("debug");
   const [query, setQuery] = useState("");

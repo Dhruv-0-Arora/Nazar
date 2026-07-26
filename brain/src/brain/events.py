@@ -19,6 +19,7 @@ class Event:
     seq: int
     event: str
     data: dict
+    ts: float = 0.0  # epoch seconds at emit time
 
 
 class EventLog:
@@ -58,5 +59,5 @@ def read_events(path: Path, after_seq: int = 0) -> list[Event]:
             except json.JSONDecodeError:
                 continue  # torn write at EOF; the next read picks it up complete
             if rec.get("seq", 0) > after_seq:
-                events.append(Event(seq=rec["seq"], event=rec["event"], data=rec.get("data", {})))
+                events.append(Event(seq=rec["seq"], event=rec["event"], data=rec.get("data", {}), ts=rec.get("ts", 0.0)))
     return events

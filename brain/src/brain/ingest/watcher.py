@@ -35,6 +35,8 @@ def list_bundles(cfg: Config, used: set[str] | None = None) -> list[dict]:
         except BundleError as e:
             out.append({"bundle_id": d.name, "machine_id": None, "created_at": None, "services": None, "state": "rejected", "reason": str(e)})
     for d in sorted(cfg.rejected.glob("bundle-*")):
+        if not d.is_dir():
+            continue  # the .reject-reason.txt sidecars match the glob too
         reason_file = d.parent / f"{d.name}.reject-reason.txt"
         reason = reason_file.read_text(encoding="utf-8").strip() if reason_file.is_file() else "unknown"
         entry = {"bundle_id": d.name, "machine_id": None, "created_at": None, "services": None, "state": "rejected", "reason": reason}

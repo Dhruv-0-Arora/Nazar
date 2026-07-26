@@ -54,7 +54,13 @@ push_host=""
 notes=""
 EXTRA_PATHS="${EXTRA_PATHS:-}"
 
-declare -A TRUNCATED=()
+# Truncation bookkeeping. A newline-delimited list, not an associative array:
+# macOS ships bash 3.2 and this script must run there (BSD userland generally -
+# no GNU date -d, no find -printf; see the helpers below).
+TRUNCATED_LIST=""
+mark_truncated() { TRUNCATED_LIST="${TRUNCATED_LIST}${1}
+"; }
+is_truncated() { printf '%s' "$TRUNCATED_LIST" | grep -Fxq -- "$1"; }
 
 usage() {
     cat <<'EOF'
@@ -166,15 +172,15 @@ machine_id=$(printf '%s' "$raw_hostname" | tr '[:upper:]' '[:lower:]' | tr -c 'a
 mkdir -p -- "$outdir" || { warn "cannot create outdir $outdir"; exit 1; }
 
 # Regenerate the timestamp until the directory name is free (idempotent reruns).
+# Plain `date -u +FMT` only: GNU's `date -d @epoch` does not exist on BSD/macOS.
 while :; do
-    now_epoch=$(date -u +%s)
-    ts=$(date -u -d "@$now_epoch" +%Y%m%dT%H%M%SZ)
+    ts=$(date -u +%Y%m%dT%H%M%SZ)
     bundle_id="bundle-${machine_id}-${ts}"
     bundle_dir="${outdir}/${bundle_id}"
     [ -e "$bundle_dir" ] || break
     sleep 1
 done
-created_at=$(date -u -d "@$now_epoch" +%Y-%m-%dT%H:%M:%SZ)
+created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 mkdir -p -- "$bundle_dir" || { warn "cannot create $bundle_dir"; exit 1; }
 warn "collecting into $bundle_dir"
@@ -321,27 +327,31 @@ while IFS= read -r -d '' f; do
     sz=$(file_size "$f")
     if [ "$sz" -gt "$MAX_FILE_BYTES" ]; then
         tail -c "$MAX_FILE_BYTES" -- "$f" >"$f.trunc.tmp" && mv -- "$f.trunc.tmp" "$f"
-        TRUNCATED["$rel"]=1
+        mark_truncated "$rel"
     fi
 done < <(find "$bundle_dir" -type f -print0)
 
 # Total cap: repeatedly halve the largest file until the bundle fits.
+# file_size loops instead of `find -printf` (GNU-only; absent on BSD/macOS).
+sized_files() {
+    find "$bundle_dir" -type f | while IFS= read -r f; do
+        printf '%s %s\n' "$(file_size "$f" | tr -d '[:space:]')" "${f#"$bundle_dir"/}"
+    done
+}
 budget=$((MAX_BUNDLE_BYTES - MANIFEST_RESERVE))
 while :; do
-    total=$(find "$bundle_dir" -type f -printf '%s\n' | awk '{ s += $1 } END { print s + 0 }')
+    total=$(sized_files | awk '{ s += $1 } END { print s + 0 }')
     [ "$total" -le "$budget" ] && break
     largest_size=""
     largest_rel=""
-    read -r largest_size largest_rel < <(
-        find "$bundle_dir" -type f -printf '%s %P\n' | sort -nr | head -n 1
-    ) || true
+    read -r largest_size largest_rel < <(sized_files | sort -nr | head -n 1) || true
     if [ -z "${largest_rel:-}" ] || [ "${largest_size:-0}" -le "$MIN_SHRINK_BYTES" ]; then
         warn "cannot shrink bundle below $total bytes (budget $budget)"
         break
     fi
     tail -c "$((largest_size / 2))" -- "$bundle_dir/$largest_rel" >"$bundle_dir/$largest_rel.trunc.tmp" \
         && mv -- "$bundle_dir/$largest_rel.trunc.tmp" "$bundle_dir/$largest_rel"
-    TRUNCATED["$largest_rel"]=1
+    mark_truncated "$largest_rel"
 done
 
 # --- manifest.json -----------------------------------------------------------
@@ -372,16 +382,17 @@ kernel=$(uname -r 2>/dev/null || printf 'unknown')
     printf '],\n'
     printf '  "files": [\n'
     first=1
-    while IFS= read -r rel; do
+    while IFS= read -r f; do
+        rel=${f#"$bundle_dir"/}
         [ -n "$rel" ] || continue
-        bytes=$(file_size "$bundle_dir/$rel")
+        bytes=$(file_size "$f" | tr -d '[:space:]')
         trunc="false"
-        [ -n "${TRUNCATED[$rel]:-}" ] && trunc="true"
+        is_truncated "$rel" && trunc="true"
         [ "$first" -eq 1 ] || printf ',\n'
         printf '    {"path": "%s", "bytes": %s, "truncated": %s}' \
             "$(json_escape "$rel")" "$bytes" "$trunc"
         first=0
-    done < <(find "$bundle_dir" -type f ! -name manifest.json -printf '%P\n' | LC_ALL=C sort)
+    done < <(find "$bundle_dir" -type f ! -name manifest.json | LC_ALL=C sort)
     printf '\n  ],\n'
     printf '  "notes": "%s"\n' "$(json_escape "$notes")"
     printf '}\n'

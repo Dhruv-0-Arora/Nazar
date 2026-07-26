@@ -20,7 +20,9 @@ export function App() {
   const connect = useStore((s) => s.connect);
   const snapshot = useStore((s) => s.snapshot);
   const selectedMachine = useStore((s) => s.selectedMachine);
-  const machines = useStore((s) => s.snapshot?.machines ?? []);
+  // zustand v5 selectors must return stable references; `?? []` inside the
+  // selector mints a new array per call and infinite-loops React (#185).
+  const machines = useStore((s) => s.snapshot?.machines) ?? [];
   const selectMachine = useStore((s) => s.selectMachine);
 
   useEffect(() => connect(), [connect]);
