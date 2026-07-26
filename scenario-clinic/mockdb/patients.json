@@ -1,0 +1,17 @@
+{
+  "_synthetic": "ALL RECORDS BELOW ARE FABRICATED TEST DATA. No real person, MRN, or clinical event is represented.",
+  "patients": [
+    { "mrn": "MRN-004182", "name": "Avery Lindqvist",  "dob": "1971-03-14", "status": "active",    "provider": "Okonkwo, D.", "lastVisit": "2026-07-19", "flags": ["allergy:penicillin"] },
+    { "mrn": "MRN-004183", "name": "Rosalind Achterberg", "dob": "1988-11-02", "status": "active", "provider": "Okonkwo, D.", "lastVisit": "2026-07-21", "flags": [] },
+    { "mrn": "MRN-004190", "name": "Teodoro Vasquez-Hale", "dob": "1954-06-27", "status": "active", "provider": "Reinholt, S.", "lastVisit": "2026-07-24", "flags": ["fall-risk"] },
+    { "mrn": "MRN-004201", "name": "Junko Fairweather", "dob": "1999-01-08", "status": "inactive", "provider": "Reinholt, S.", "lastVisit": "2025-12-03", "flags": [] },
+    { "mrn": "MRN-004215", "name": "Cassius Bergstrom", "dob": "1966-09-30", "status": "active",   "provider": "Okonkwo, D.", "lastVisit": "2026-07-25", "flags": ["interpreter:pt-BR"] },
+    { "mrn": "MRN-004228", "name": "Mireille Ostrowski", "dob": "1982-04-19", "status": "active",  "provider": "Nakamura, H.", "lastVisit": "2026-07-22", "flags": [] },
+    { "mrn": "MRN-004240", "name": "Delphine Okonkwo", "dob": "1975-12-11", "status": "active",    "provider": "Nakamura, H.", "lastVisit": "2026-07-18", "flags": ["allergy:latex"] },
+    { "mrn": "MRN-004251", "name": "Hollis Trebuchet",  "dob": "2001-08-05", "status": "active",   "provider": "Reinholt, S.", "lastVisit": "2026-07-23", "flags": [] },
+    { "mrn": "MRN-004263", "name": "Ingrid Palomares",  "dob": "1949-02-23", "status": "active",   "provider": "Nakamura, H.", "lastVisit": "2026-07-25", "flags": ["fall-risk", "allergy:sulfa"] },
+    { "mrn": "MRN-004277", "name": "Barnaby Whitlock",  "dob": "1993-05-16", "status": "inactive", "provider": "Okonkwo, D.", "lastVisit": "2026-01-30", "flags": [] },
+    { "mrn": "MRN-004284", "name": "Solveig Amankwah",  "dob": "1960-10-09", "status": "active",   "provider": "Reinholt, S.", "lastVisit": "2026-07-20", "flags": [] },
+    { "mrn": "MRN-004299", "name": "Emeka Lindqvist",   "dob": "2015-07-01", "status": "active",   "provider": "Nakamura, H.", "lastVisit": "2026-07-24", "flags": ["guardian-consent"] }
+  ]
+}

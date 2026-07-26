@@ -1,0 +1,17 @@
+{
+  "name": "clinic-services",
+  "version": "2.4.1",
+  "private": true,
+  "description": "Patient records stack for Cedar Hollow Community Health site clinics",
+  "type": "commonjs",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "bash scripts/build.sh",
+    "start:backend": "node backend/server.js",
+    "start:portal": "node frontend/server.js",
+    "start:mockdb": "node mockdb/server.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  }
+}

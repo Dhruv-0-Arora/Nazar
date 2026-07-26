@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patient Records — Cedar Hollow Community Health</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to patient list</a>
+
+<header class="topbar">
+  <div class="topbar__identity">
+    <span class="mark" aria-hidden="true"></span>
+    <span class="topbar__org">Cedar Hollow Community Health</span>
+    <span class="topbar__app">Patient Records</span>
+  </div>
+  <div class="topbar__session">
+    <span class="topbar__site">Site 04 · North Clinic</span>
+    <span class="topbar__user">okonkwo.d</span>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="rail" aria-label="Sections">
+    <ul>
+      <li><a href="#main" aria-current="page">Patient list</a></li>
+      <li><a href="#main">Scheduling</a></li>
+      <li><a href="#main">Orders</a></li>
+      <li><a href="#main">Results</a></li>
+      <li><a href="#main">Referrals</a></li>
+    </ul>
+    <p class="rail__note">Records access is logged. PHI does not leave this network.</p>
+  </nav>
+
+  <main id="main" class="main">
+    <div class="main__head">
+      <h1>Patient list</h1>
+      <form class="search" role="search" autocomplete="off">
+        <label class="search__label" for="q">Search by name or MRN</label>
+        <input id="q" name="q" type="search" placeholder="Lindqvist, or MRN-004182">
+        <button type="submit">Search</button>
+      </form>
+    </div>
+
+    <!-- Exactly one of these three regions is visible at a time. -->
+    <section id="loading" class="state" hidden>
+      <p class="state__text">Loading patient records…</p>
+    </section>
+
+    <section id="records" hidden>
+      <table class="records">
+        <caption class="visually-hidden">Patients matching the current search</caption>
+        <thead>
+          <tr>
+            <th scope="col">MRN</th>
+            <th scope="col">Name</th>
+            <th scope="col">DOB</th>
+            <th scope="col">Provider</th>
+            <th scope="col">Last visit</th>
+            <th scope="col">Flags</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody id="records-body"></tbody>
+      </table>
+      <p id="records-count" class="records__count"></p>
+    </section>
+
+    <!-- The signature element. Not a friendly error: a readable diagnostic. -->
+    <section id="failure" class="failure" role="alert" aria-live="assertive" hidden>
+      <p class="failure__eyebrow">Service disruption</p>
+      <h2 class="failure__title">Patient records unavailable</h2>
+      <p class="failure__body">
+        The portal reached <code>clinic-backend</code>, but <code>clinic-backend</code>
+        could not reach the records database. No records can be displayed until the
+        connection is restored. Scheduling and check-in are unaffected.
+      </p>
+
+      <dl class="diag">
+        <div class="diag__row">
+          <dt>Error class</dt>
+          <dd id="diag-code">—</dd>
+        </div>
+        <div class="diag__row">
+          <dt>Upstream</dt>
+          <dd id="diag-upstream">—</dd>
+        </div>
+        <div class="diag__row">
+          <dt>Correlation ID</dt>
+          <dd id="diag-cid">—</dd>
+        </div>
+        <div class="diag__row">
+          <dt>Observed</dt>
+          <dd id="diag-time">—</dd>
+        </div>
+        <div class="diag__row diag__row--wide">
+          <dt>Detail</dt>
+          <dd id="diag-detail">—</dd>
+        </div>
+      </dl>
+
+      <p class="failure__action">
+        Report the correlation ID to on-site technical staff. Retrying will not
+        clear this condition.
+      </p>
+      <button id="retry" class="failure__retry" type="button">Retry now</button>
+    </section>
+  </main>
+</div>
+
+<footer class="statusbar" role="status" aria-live="polite">
+  <span class="statusbar__item">
+    <span id="dot" class="dot dot--unknown" aria-hidden="true"></span>
+    <span class="statusbar__label">Backend</span>
+    <strong id="status-backend">checking…</strong>
+  </span>
+  <span class="statusbar__item">
+    <span class="statusbar__label">Records database</span>
+    <strong id="status-upstream">—</strong>
+  </span>
+  <span class="statusbar__item">
+    <span class="statusbar__label">Last successful read</span>
+    <strong id="status-lastok">—</strong>
+  </span>
+  <span class="statusbar__item statusbar__item--end">
+    <span class="statusbar__label">Portal</span>
+    <strong id="status-build">—</strong>
+  </span>
+</footer>
+
+<script src="./app.js"></script>
+</body>
+</html>
