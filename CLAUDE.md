@@ -25,7 +25,7 @@ Offline diagnostic "Brain": client machines are packaged into bundles by a bash 
   - `api/` - routes from API.md; also serves the built UI.
 - `ui/` - React + @xyflow/react + zustand + Tailwind (Vite), built static, served by the brain service on port 8000 (fde-console, see ADR-0014). Header toggle (or `VITE_USE_MOCK=false npm run dev`) switches between fixtures and the live Brain; its ConsoleApi surface is served by the Brain's adapter `brain/api/console.py` (ADR-0015).
 - `integration/openclaw/` - operator layer (ADR-0011): `brainctl` CLI wrapping the Brain API + the OpenClaw `SKILL.md` + `install.sh`.
-- `transport-layer/usb-transport/` - FDE client stick (transport owner): interactive setup + collectors (bash/PowerShell) writing to `client/outbox/`, and `workstation/receive_bundle.py`. The Brain's `ingest/usb.py` wraps the receiver and normalizes its bundle dialect to CONTRACT v1.0; USB-received runs default to full-context injection (ADR-0012).
+- `transport-layer/usb-transport/` - FDE client stick (transport owner): `client/main.sh` is the one-script entry (setup once per device via `collect-<machine_id>.conf`, then collect), collectors write to `client/outbox/`. Workstation side: `atomic_transfer.py` deposits through a running brain's `/api/usb/receive` or directly via `ingest/usb.py` (never a raw copy into the inbox), then prints a BM25 + graph preview; `receive_bundle.py` is the underlying verifier the Brain's `ingest/usb.py` wraps. `ingest/usb.py` normalizes any bundle dialect to CONTRACT v1.0; USB-received runs default to full-context injection (ADR-0012).
 - Runtime state is NOT in the repo: `~/brain/inbox/` and `~/brain/runs/` (`$BRAIN_HOME`).
 
 ## Conventions and invariants

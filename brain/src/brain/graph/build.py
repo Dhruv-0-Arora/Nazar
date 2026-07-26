@@ -29,8 +29,18 @@ SS_PROC_RE = re.compile(r'users:\(\("([^"]+)"')
 _FILE_EXT_NOISE = {
     "log", "env", "md", "txt", "json", "js", "py", "sh", "conf", "service", "yaml", "yml",
     "socket", "target", "timer", "pid", "lock", "gz", "html", "css",
+    "pem", "crt", "key", "cert", "pub",
 }
 _HOST_NOISE = {"e.g", "i.e", "vs", "etc"}
+
+# source files under problem/ or docs/: dotted tokens are method calls
+# (json.stringify, this.connections.push), not hostnames - skip host
+# extraction there or minified JS floods the graph with junk host nodes
+_CODE_EXTS = {"js", "mjs", "cjs", "ts", "tsx", "jsx", "map", "html", "css", "py"}
+
+
+def _is_code_file(file_path: str) -> bool:
+    return file_path.rsplit(".", 1)[-1].lower() in _CODE_EXTS
 
 
 def build_graph(chunks: list[Chunk], manifests: list[Manifest], store: GraphStore) -> None:
@@ -73,7 +83,7 @@ def build_graph(chunks: list[Chunk], manifests: list[Manifest], store: GraphStor
             store.add_evidence(sid, chunk.id)
             if sid not in chunk.mentions:
                 chunk.mentions.append(sid)
-        for type_, value in _extract_entities(chunk.text):
+        for type_, value in _extract_entities(chunk.text, with_hostnames=not _is_code_file(chunk.file_path)):
             node = store.get_or_create(type_, value)
             store.add_evidence(node.id, chunk.id)
             if node.id not in chunk.mentions:
@@ -142,7 +152,7 @@ def _match_service(proc: str, manifest: Manifest | None) -> str | None:
     return None
 
 
-def _extract_entities(text: str):
+def _extract_entities(text: str, with_hostnames: bool = True):
     seen = set()
     for ip in IP_RE.findall(text):
         if _valid_ip(ip) and ("ip", ip) not in seen:
@@ -150,9 +160,10 @@ def _extract_entities(text: str):
     for var, _val in ENV_VAR_RE.findall(text):
         if ("env_var", var) not in seen:
             seen.add(("env_var", var))
-    for host in HOSTNAME_RE.findall(text.lower()):
-        if _valid_hostname(host) and ("host", host) not in seen:
-            seen.add(("host", host))
+    if with_hostnames:
+        for host in HOSTNAME_RE.findall(text.lower()):
+            if _valid_hostname(host) and ("host", host) not in seen:
+                seen.add(("host", host))
     for err in ERROR_RE.findall(text):
         key = ("error", err.upper().replace(" ", "_"))
         if key not in seen:
