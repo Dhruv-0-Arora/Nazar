@@ -1,3 +1,0 @@
-### CMD: systemctl status testerrorfiles --no-pager ###
-[command not available on this system]
-
