@@ -62,10 +62,11 @@ def verify_bundle(bundle_dir: Path):
     except (json.JSONDecodeError, OSError) as e:
         return None, [f"manifest.json unreadable or invalid JSON: {e}"], []
 
-    if manifest.get("contract_version") != CONTRACT_VERSION:
+    major = str(manifest.get("contract_version", "")).split(".", 1)[0]
+    if major != CONTRACT_VERSION:
         errors.append(
             f"contract version mismatch: bundle says "
-            f"{manifest.get('contract_version')!r}, receiver speaks {CONTRACT_VERSION!r}"
+            f"{manifest.get('contract_version')!r}, receiver speaks major {CONTRACT_VERSION!r}"
         )
 
     listed = set()

@@ -24,8 +24,8 @@ LOG_FILES=()
 SERVICES=()
 DOCS_DIR=""
 LOG_TAIL_LINES=500
-MAX_FILE_BYTES=5242880
-RUN_AFTER=""   # "" = ask (interactive) / don't run (flag mode); yes/no via flags
+MAX_FILE_BYTES=524288   # CONTRACT.md: 512 KB per-file cap
+RUN_AFTER=yes  # collection happens right after setup; opt out with --no-run
 
 usage() {
     cat <<'EOF'
@@ -39,7 +39,7 @@ With no options, runs interactively.
   --docs-dir DIR      company-docs corpus directory (optional)
   --service NAME      systemd service to capture (repeatable, Linux only)
   --tail N            keep last N lines of each log (default 500)
-  --run               run collector.sh immediately after writing config
+  --run               run collector.sh after writing config (the default)
   --no-run            write config only
   -h, --help          this help
 EOF
@@ -152,17 +152,13 @@ echo "  services:        ${#SERVICES[@]}"
 echo "  docs corpus:     ${DOCS_DIR:-<none>}"
 
 # ------------------------------------------------------------ run collector -
-
-if [ -z "$RUN_AFTER" ] && [ $INTERACTIVE -eq 1 ]; then
-    echo
-    read -r -p "Run collection now and build the bundle + manifest? [Y/n] " ans
-    case "${ans:-Y}" in [Yy]*) RUN_AFTER=yes ;; *) RUN_AFTER=no ;; esac
-fi
+# Collection happens right after setup, automatically (--no-run to opt out).
 
 if [ "$RUN_AFTER" = "yes" ]; then
     echo
+    echo "Setup complete - starting collection now."
     exec bash "$SCRIPT_DIR/collector.sh" --conf "$CONF"
 else
     echo
-    echo "Config saved. Build the bundle any time with:  ./collector.sh"
+    echo "Config saved. Build the bundle any time with:  ./collector.sh  (or ./main.sh)"
 fi

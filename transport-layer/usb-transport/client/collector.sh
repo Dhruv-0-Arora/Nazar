@@ -10,8 +10,8 @@
 #
 # Never runs automatically. A human invokes it.
 
-COLLECTOR_VERSION="0.1.0"
-CONTRACT_VERSION="1"
+COLLECTOR_VERSION="0.2.0"
+CONTRACT_VERSION="1.0"
 
 set -u
 
@@ -52,10 +52,14 @@ LOG_FILES=()
 SERVICES=()
 DOCS_DIR=""
 LOG_TAIL_LINES=500
-MAX_FILE_BYTES=5242880
+MAX_FILE_BYTES=524288   # CONTRACT.md section 2: no file may exceed 512 KB
 
 # shellcheck disable=SC1090
 . "$CONF"
+
+# The contract cap (512 KB per file) is not configurable upward; older
+# collect.conf files may still carry the pre-contract 5 MB default.
+[ "$MAX_FILE_BYTES" -gt 524288 ] && MAX_FILE_BYTES=524288
 
 # ---------------------------------------------------------------- helpers ---
 
@@ -94,7 +98,9 @@ file_bytes() { wc -c < "$1" | tr -d '[:space:]'; }
 # ---------------------------------------------------------------- prepare ---
 
 HOST_RAW="$(hostname 2>/dev/null || echo unknown-host)"
-HOST="$(printf '%s' "$HOST_RAW" | tr -c 'A-Za-z0-9._-' '-')"
+# machine_id per CONTRACT.md section 1: lowercase [a-z0-9-]+, no dots/underscores
+HOST="$(printf '%s' "$HOST_RAW" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/--*/-/g; s/^-//; s/-$//')"
+[ -n "$HOST" ] || HOST="unknown-host"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 CREATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 OS_DESC="$(uname -srm 2>/dev/null || echo unknown-os)"
@@ -121,7 +127,14 @@ capture "$SYS" "uptime"
 capture "$SYS" "df -h"
 capture "$SYS" "free -m"
 capture "$SYS" "systemctl --failed --no-pager"
-capture "$SYS" "ps aux"
+
+# processes.txt is REQUIRED by CONTRACT.md section 2 (its own file, not part
+# of system.txt). On Windows/Git-Bash `ps aux` degrades gracefully; tasklist
+# fills the gap.
+echo "==> Capturing process list"
+PROC="$BUNDLE_DIR/processes.txt"
+capture "$PROC" "ps aux"
+capture "$PROC" "tasklist"
 
 echo "==> Capturing network state"
 NET="$BUNDLE_DIR/network.txt"
@@ -209,6 +222,30 @@ if [ -n "$DOCS_DIR" ]; then
     fi
 fi
 
+# ------------------------------------------------ contract normalization ----
+# CONTRACT.md section 2: no file over 512 KB (truncate from the top, keep the
+# tail) and no ':' in bundle-relative paths (chunk ID grammar).
+
+TRUNCATED_LIST="$(mktemp)"
+INDEX_TMP="$(mktemp)"
+trap 'rm -f "$TRUNCATED_LIST" "$INDEX_TMP"' EXIT
+
+while IFS= read -r -d '' f; do
+    rel="${f#"$BUNDLE_DIR"/}"
+    case "$rel" in
+        *:*)
+            note "WARNING: removed (colon in path violates chunk ID grammar): $rel"
+            rm -f "$f"
+            continue ;;
+    esac
+    bytes="$(file_bytes "$f")"
+    if [ "$bytes" -gt "$MAX_FILE_BYTES" ]; then
+        tail -c "$MAX_FILE_BYTES" "$f" > "$f.trunc.tmp" && mv "$f.trunc.tmp" "$f"
+        printf '%s\n' "$rel" >> "$TRUNCATED_LIST"
+        note "WARNING: truncated to last $MAX_FILE_BYTES bytes: $rel"
+    fi
+done < <(find "$BUNDLE_DIR" -type f -print0)
+
 # --------------------------------------------------------------- manifest ---
 
 echo "==> Generating manifest.json"
@@ -225,6 +262,7 @@ fi
 kind_of() {
     case "$1" in
         system.txt)          echo system ;;
+        processes.txt)       echo system ;;
         network.txt)         echo network ;;
         NOTES.txt)           echo meta ;;
         app_logs/SOURCES.txt) echo meta ;;
@@ -239,8 +277,6 @@ kind_of() {
 
 # Pre-pass: one line per file "rel|bytes|sha256|kind" so totals are known
 # before the JSON is emitted.
-INDEX_TMP="$(mktemp)"
-trap 'rm -f "$INDEX_TMP"' EXIT
 total_bytes=0
 file_count=0
 while IFS= read -r -d '' f; do
@@ -272,10 +308,15 @@ MANIFEST="$BUNDLE_DIR/manifest.json"
     printf '{\n'
     printf '  "contract_version": "%s",\n'  "$CONTRACT_VERSION"
     printf '  "collector_version": "%s",\n' "$COLLECTOR_VERSION"
+    printf '  "bundle_id": "%s",\n'         "$(json_escape "$BUNDLE_NAME")"
     printf '  "bundle": "%s",\n'            "$(json_escape "$BUNDLE_NAME")"
+    printf '  "machine_id": "%s",\n'        "$(json_escape "$HOST")"
     printf '  "hostname": "%s",\n'          "$(json_escape "$HOST")"
+    printf '  "created_at": "%s",\n'        "$CREATED_AT"
     printf '  "created_at_utc": "%s",\n'    "$CREATED_AT"
     printf '  "os": "%s",\n'                "$(json_escape "$OS_DESC")"
+    printf '  "services": [%s],\n'          "$(json_str_array ${SERVICES[@]+"${SERVICES[@]}"})"
+    printf '  "notes": "",\n'
     printf '  "targets": {\n'
     printf '    "problem_dirs": [%s],\n' "$(json_str_array ${PROBLEM_DIRS[@]+"${PROBLEM_DIRS[@]}"})"
     printf '    "log_files": [%s],\n'    "$(json_str_array ${LOG_FILES[@]+"${LOG_FILES[@]}"})"
@@ -303,8 +344,10 @@ MANIFEST="$BUNDLE_DIR/manifest.json"
     first=1
     while IFS='|' read -r rel bytes hash kind; do
         [ $first -eq 0 ] && printf ',\n'
-        printf '    {"path": "%s", "bytes": %s, "sha256": "%s", "kind": "%s"}' \
-            "$(json_escape "$rel")" "$bytes" "$hash" "$kind"
+        truncated=false
+        grep -Fxq "$rel" "$TRUNCATED_LIST" 2>/dev/null && truncated=true
+        printf '    {"path": "%s", "bytes": %s, "sha256": "%s", "kind": "%s", "truncated": %s}' \
+            "$(json_escape "$rel")" "$bytes" "$hash" "$kind" "$truncated"
         first=0
     done < "$INDEX_TMP"
     printf '\n  ]\n'
@@ -320,7 +363,7 @@ echo "   files: $file_count   total: $total_bytes bytes"
 echo
 echo " Next step (USB mode): eject this drive, plug it into the"
 echo " workstation (Brain), and run (no arguments needed):"
-echo "   python <stick>/usb-transport/workstation/receive_bundle.py"
+echo "   python <stick>/usb-transport/workstation/atomic_transfer.py"
 echo
 echo " Next step (SSH mode): from the Brain, run pull.sh against"
 echo " this machine; it fetches manifest.json first, then the bundle."
