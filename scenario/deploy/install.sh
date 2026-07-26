@@ -1,79 +1,80 @@
 #!/usr/bin/env bash
-# install.sh - deploy the scenario onto a laptop. REQUIRES sudo/root.
+# Installs the scenario onto a clinic laptop under systemd.
 #
-# Usage:
-#   sudo ./install.sh laptop-a                          # backend + mock-db + its corpus docs
-#   sudo ./install.sh laptop-b http://<laptop-a-ip>:3001  # frontend + its corpus docs
+#   sudo ./deploy/install.sh laptop-a
+#   sudo ./deploy/install.sh laptop-b http://<laptop-a-ip>:8080
 #
-# What it does:
-#   - copies code to /opt/myapp/
-#   - writes env files to /etc/myapp/ (backend log goes to /var/log/myapp/)
-#   - installs and enables systemd units from this directory
-#   - copies this machine's corpus docs (per corpus/placement.json) to /opt/company-docs/
-#   - never copies ground_truth.md or placement.json to the machine's corpus
-set -euo pipefail
+# laptop-a runs clinic-mockdb + clinic-backend and holds the backend config.
+# laptop-b runs clinic-portal and points at laptop-a.
+#
+# Deploys the BUILT artifact from dist/, not source. Run scripts/build.sh first.
+# Copies each laptop's corpus docs per corpus/placement.json.
+# Never copies ground_truth.md or placement.json onto a laptop.
 
-if [[ $EUID -ne 0 ]]; then
-  echo "ERROR: run with sudo (installs to /opt, /etc, /var/log, systemd)." >&2
-  exit 1
-fi
+set -euo pipefail
 
 ROLE="${1:-}"
 BACKEND_URL="${2:-}"
-if [[ "$ROLE" != "laptop-a" && "$ROLE" != "laptop-b" ]]; then
-  echo "usage: sudo $0 laptop-a | laptop-b [backend-url]" >&2
-  exit 1
-fi
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCENARIO_DIR="$(dirname "$DEPLOY_DIR")"
+case "$ROLE" in
+  laptop-a|laptop-b) ;;
+  *) echo "usage: install.sh <laptop-a|laptop-b> [backend-url]" >&2; exit 1 ;;
+esac
 
-install_corpus() {
-  local role="$1"
-  mkdir -p /opt/company-docs
-  local docs
-  docs="$(node -e "
-    const p = require('${SCENARIO_DIR}/corpus/placement.json');
-    console.log((p['${role}'] || []).join('\n'));
-  ")"
-  while IFS= read -r doc; do
-    [[ -n "$doc" ]] || continue
-    install -m 0644 "${SCENARIO_DIR}/corpus/${doc}" "/opt/company-docs/${doc}"
-  done <<< "$docs"
-  echo "corpus for ${role} installed to /opt/company-docs/:"
-  ls /opt/company-docs/
+[ "$(id -u)" -eq 0 ] || { echo "install.sh: needs root (writes /opt, /etc, /var/log)" >&2; exit 1; }
+[ -d "$ROOT/dist" ] || { echo "install.sh: dist/ missing - run scripts/build.sh first" >&2; exit 1; }
+
+install -d /opt/clinic /etc/clinic /var/log/clinic /opt/company-docs
+
+echo "installing artifact to /opt/clinic"
+cp -R "$ROOT/dist/." /opt/clinic/
+
+# ---------------------------------------------------------------- corpus ----
+# Each laptop gets only its own doc set. The doc explaining the fault lives on
+# the opposite machine from the fault, so diagnosis requires both bundles.
+echo "installing corpus docs for $ROLE"
+node -e '
+const fs = require("fs"), path = require("path");
+const [root, role] = process.argv.slice(1);
+const placement = JSON.parse(fs.readFileSync(path.join(root, "corpus/placement.json"), "utf8"));
+for (const doc of placement[role] || []) {
+  fs.copyFileSync(path.join(root, "corpus", doc), path.join("/opt/company-docs", doc));
+  console.log("  " + doc);
 }
+' "$ROOT" "$ROLE"
 
-mkdir -p /etc/myapp /var/log/myapp
+# Belt and braces: the grading key and the placement map must never reach a
+# client machine, whatever else this script does.
+rm -f /opt/company-docs/ground_truth.md /opt/company-docs/placement.json
 
-if [[ "$ROLE" == "laptop-a" ]]; then
-  mkdir -p /opt/myapp/backend /opt/myapp/mock-db
-  install -m 0644 "${SCENARIO_DIR}/backend/server.js" /opt/myapp/backend/server.js
-  install -m 0644 "${SCENARIO_DIR}/mock-db/server.js" /opt/myapp/mock-db/server.js
-  # System env file: same healthy defaults, but log to /var/log/myapp.
-  sed 's|^LOG_FILE=.*|LOG_FILE=/var/log/myapp/backend.log|' \
-    "${SCENARIO_DIR}/backend/backend.env" > /etc/myapp/backend.env
-  install -m 0644 "${DEPLOY_DIR}/backend.service" /etc/systemd/system/backend.service
-  install -m 0644 "${DEPLOY_DIR}/mock-db.service" /etc/systemd/system/mock-db.service
+if [ "$ROLE" = "laptop-a" ]; then
+  echo "installing backend config to /etc/clinic/backend.env"
+  cp "$ROOT/backend/config/backend.env" /etc/clinic/backend.env
+  sed -i 's|^LOG_FILE=.*|LOG_FILE=/var/log/clinic/backend.log|' /etc/clinic/backend.env
+
+  install -m 644 "$ROOT/deploy/clinic-mockdb.service" /etc/systemd/system/
+  install -m 644 "$ROOT/deploy/clinic-backend.service" /etc/systemd/system/
   systemctl daemon-reload
-  systemctl enable --now mock-db backend
-  install_corpus laptop-a
-  echo "laptop-a installed: mock-db (5432) + backend (3001), env at /etc/myapp/backend.env."
+  systemctl enable --now clinic-mockdb clinic-backend
+  systemctl --no-pager status clinic-backend | head -5
 else
-  mkdir -p /opt/myapp/frontend
-  install -m 0644 "${SCENARIO_DIR}/frontend/server.js" /opt/myapp/frontend/server.js
-  install -m 0644 "${SCENARIO_DIR}/frontend/index.html" /opt/myapp/frontend/index.html
-  {
-    echo "PORT=8080"
-    echo "BACKEND_URL=${BACKEND_URL:-http://127.0.0.1:3001}"
-    echo "LOG_FILE=/var/log/myapp/frontend.log"
-  } > /etc/myapp/frontend.env
-  if [[ -z "$BACKEND_URL" ]]; then
-    echo "WARNING: no backend URL given; edit BACKEND_URL in /etc/myapp/frontend.env to point at laptop A." >&2
-  fi
-  install -m 0644 "${DEPLOY_DIR}/frontend.service" /etc/systemd/system/frontend.service
+  [ -n "$BACKEND_URL" ] || { echo "install.sh: laptop-b needs a backend URL" >&2; exit 1; }
+  echo "installing portal config to /etc/clinic/portal.env"
+  cat > /etc/clinic/portal.env <<EOF
+SERVICE_NAME=clinic-portal
+PORT=3000
+BACKEND_URL=$BACKEND_URL
+EOF
+
+  install -m 644 "$ROOT/deploy/clinic-portal.service" /etc/systemd/system/
   systemctl daemon-reload
-  systemctl enable --now frontend
-  install_corpus laptop-b
-  echo "laptop-b installed: frontend (8080), env at /etc/myapp/frontend.env."
+  systemctl enable --now clinic-portal
+  systemctl --no-pager status clinic-portal | head -5
 fi
+
+echo
+echo "installed $ROLE"
+echo "  break it:  sudo $ROOT/scripts/inject.sh"
+echo "  heal it:   sudo $ROOT/scripts/revert.sh"
+echo "  strip hints before evaluation: $ROOT/scripts/nuke.sh --target /opt/clinic"

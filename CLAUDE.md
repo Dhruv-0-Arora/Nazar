@@ -13,7 +13,7 @@ Offline diagnostic "Brain": client machines are packaged into bundles by a bash 
 
 ## Layout
 
-- `scenario/` - the deliberately broken system (Node backend, frontend, corpus docs, inject.sh/revert.sh, ground_truth.md). Owned by the scenario teammate. ground_truth.md never ships to client machines.
+- `scenario/` - the deliberately broken system (Node backend, portal, mockdb, corpus docs, scripts/, ground_truth.md). Owned by the scenario teammate. ground_truth.md never ships to client machines. Cedar Hollow clinic domain since ADR-0012; backend 8080, portal 3000, mockdb 5432, deployed under `/opt/clinic` and `/etc/clinic`. Carries inert distractors (`backend/pool.js` dead code, `backend/maintenance.js` advisory warnings, unread config keys) documented in `scenario/BREAKAGE.md`; a diagnosis landing on any of them is a graded failure, see `scenario/ground_truth.md`.
 - `collector/collector.sh` - dependency-free bash; produces bundles per CONTRACT.md.
 - `brain/` - Python 3.12 package (FastAPI). Key modules under `src/brain/`:
   - `llm.py` - the ONLY module that talks to Ollama (swap seam).
@@ -47,7 +47,7 @@ Brain: NVIDIA GB10, 120 GB unified memory, Ubuntu. Python 3.12.3, Node, Ollama w
 
 - Brain: `cd brain && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'`; tests: `.venv/bin/python -m pytest`; run: `.venv/bin/brain serve` (also `brain ingest <bundle>`, `brain pull <host>`, `brain graph <run_id>`).
 - UI: `cd ui && npm install && npm run build` (output ui/dist, auto-served by brain); dev: `npm run dev`; no-backend demo: `npm run mock`.
-- Scenario: `scenario/run-local.sh` starts mock-db + backend + frontend locally; `scenario/inject.sh` plants the bug; `scenario/revert.sh` heals it.
+- Scenario: `scenario/scripts/run-local.sh` starts mockdb + backend + portal locally; `ENV_FILE=.local/backend.env scenario/scripts/inject.sh` plants the fault; `revert.sh` heals it. `scripts/build.sh` builds `dist/`; `deploy/install.sh laptop-a|laptop-b` installs under systemd; `scripts/nuke.sh --target /opt/clinic` strips hints before any evaluation run.
 - Collector: `./collector/collector.sh -o ~/bundles --services "backend" [--push <brain-host>]`.
 - Operator: `integration/openclaw/brainctl health|bundles|usb|diagnose|watch|report`.
 - Eval: `brain/.venv/bin/python eval/run_eval.py --trials 5 [--thinking]` - real-model reliability runs auto-graded against ground truth; results in `eval/results/` (gitignored).

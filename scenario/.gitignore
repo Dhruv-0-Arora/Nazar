@@ -1,3 +1,9 @@
-# Runtime artifacts from run-local.sh / inject.sh / revert.sh.
-*.pid
+# Build output. Produced by scripts/build.sh, never committed.
+dist/
+
+# Local development state from run-local.sh / inject.sh.
+.local/
+.runlog
 *.log
+
+node_modules/

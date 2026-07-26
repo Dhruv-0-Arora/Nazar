@@ -1,9 +1,0 @@
-# Build output. Produced by scripts/build.sh, never committed.
-dist/
-
-# Local development state from run-local.sh / inject.sh.
-.local/
-.runlog
-*.log
-
-node_modules/

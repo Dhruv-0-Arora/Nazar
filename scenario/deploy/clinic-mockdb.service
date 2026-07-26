@@ -1,0 +1,15 @@
+[Unit]
+Description=Cedar Hollow records service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/clinic
+Environment=MOCKDB_PORT=5432
+Environment=MOCKDB_DATA=/opt/clinic/patients.json
+ExecStart=/usr/bin/env node /opt/clinic/mockdb.js
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

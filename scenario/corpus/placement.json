@@ -1,18 +1,20 @@
 {
+  "_comment": "Which corpus docs are copied to /opt/company-docs/ on each laptop. Disjoint sets: the doc that explains the fault lives on the OTHER machine from the fault, so a correct diagnosis requires joining both bundles. ground_truth.md and this file are never deployed.",
   "laptop-a": [
     "runbook-backend-config.md",
-    "ticket-2024-11-printer-jam.md",
-    "ticket-2024-09-monitor-flicker.md",
-    "runbook-onboarding.md",
-    "runbook-backup-policy.md"
+    "clin-3117-async-records-rollout.md",
+    "runbook-backup-policy.md",
+    "runbook-clinician-onboarding.md",
+    "ticket-2025-11-printer-jam.md",
+    "ticket-2025-09-monitor-flicker.md"
   ],
   "laptop-b": [
-    "db-migration-2025.md",
-    "ticket-2025-03-frontend-502.md",
-    "ticket-2025-01-vpn-dropouts.md",
-    "ticket-2025-05-ci-disk-space.md",
-    "runbook-guest-wifi.md",
+    "records-host-migration-2026.md",
+    "ticket-2026-03-portal-errors.md",
+    "runbook-patient-wifi.md",
     "runbook-password-rotation.md",
-    "runbook-meeting-rooms.md"
+    "runbook-exam-room-displays.md",
+    "ticket-2026-01-vpn-dropouts.md",
+    "ticket-2026-05-ci-disk-space.md"
   ]
 }

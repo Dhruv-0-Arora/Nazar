@@ -47,10 +47,13 @@ HINT_FILES=(
   "README.md"
   "ground_truth.md"
   "placement.json"
+  "corpus/placement.json"
   "CONTRACT.md"
   "scripts/inject.sh"
   "scripts/revert.sh"
   "scripts/run-local.sh"
+  "scripts/build.sh"
+  "scripts/deploy.sh"
   "scripts/nuke.sh"
 )
 

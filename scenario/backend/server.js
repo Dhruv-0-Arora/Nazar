@@ -1,132 +1,126 @@
 #!/usr/bin/env node
-// Scenario backend ("the patient").
-// Node core modules only: http, net, fs, path. Zero npm dependencies.
-//
-// Config comes from an env file (KEY=VALUE lines), path given by the
-// ENV_FILE environment variable, default ./backend.env next to this script.
-// Real environment variables override file values; file values override defaults.
-//
-// Keys: PORT (default 3001), DB_HOST, DB_PORT (default 5432),
-//       LOG_FILE (default ./backend.log next to this script).
-
 'use strict';
+/**
+ * clinic-backend — patient records API for the portal.
+ *
+ * Reads config from the environment (systemd EnvironmentFile=/etc/clinic/backend.env).
+ * Node stdlib only.
+ *
+ * SYMPTOM CHAIN THIS SERVICE IS BUILT TO PRODUCE:
+ *   1. `systemctl status clinic-backend` -> active (running)
+ *   2. `curl /healthz`                   -> 200 ok
+ *   3. `curl /api/patients`              -> 502, and an ERROR line in the app log
+ * Health is intentionally shallow. Anything that probes the DB from /healthz
+ * would give the bug away for free.
+ */
 
-const http = require('http');
-const net = require('net');
-const fs = require('fs');
-const path = require('path');
+const http = require('node:http');
+const crypto = require('node:crypto');
+const log = require('./logger');
+const db = require('./db');
+const maintenance = require('./maintenance');
 
-function parseEnvFile(filePath) {
-  const out = {};
-  let text;
-  try {
-    text = fs.readFileSync(filePath, 'utf8');
-  } catch (err) {
-    return out; // missing env file -> defaults only
-  }
-  for (const rawLine of text.split('\n')) {
-    const line = rawLine.trim();
-    if (line === '' || line.startsWith('#')) continue;
-    const eq = line.indexOf('=');
-    if (eq <= 0) continue;
-    const key = line.slice(0, eq).trim();
-    const value = line.slice(eq + 1).trim();
-    out[key] = value;
-  }
-  return out;
-}
+const PORT = Number(process.env.PORT || 8080);
+const BIND = process.env.BIND || '0.0.0.0';
+const SERVICE = process.env.SERVICE_NAME || 'clinic-backend';
+const VERSION = process.env.SERVICE_VERSION || '2.4.1';
 
-const envFilePath = path.resolve(
-  __dirname,
-  process.env.ENV_FILE || path.join(__dirname, 'backend.env')
-);
-const fileConfig = parseEnvFile(envFilePath);
+let lastUpstreamSuccess = null;
 
-function cfg(key, fallback) {
-  if (process.env[key] !== undefined && process.env[key] !== '') return process.env[key];
-  if (fileConfig[key] !== undefined && fileConfig[key] !== '') return fileConfig[key];
-  return fallback;
-}
-
-const PORT = parseInt(cfg('PORT', '3001'), 10);
-const DB_HOST = cfg('DB_HOST', '127.0.0.1');
-const DB_PORT = parseInt(cfg('DB_PORT', '5432'), 10);
-const LOG_FILE = path.resolve(__dirname, cfg('LOG_FILE', path.join(__dirname, 'backend.log')));
-
-function log(level, message) {
-  const line = `${new Date().toISOString()} ${level} ${message}\n`;
-  try {
-    fs.appendFileSync(LOG_FILE, line);
-  } catch (err) {
-    process.stderr.write(`cannot write log file ${LOG_FILE}: ${err.message}\n`);
-  }
-  process.stdout.write(line);
-}
-
-// Fake rows returned when the database connection succeeds.
-const FAKE_ROWS = [
-  { id: 1, sku: 'WDG-001', name: 'widget', qty: 42 },
-  { id: 2, sku: 'SPK-007', name: 'sprocket', qty: 7 },
-  { id: 3, sku: 'GRM-113', name: 'grommet', qty: 113 }
-];
-
-// Attempt a raw TCP connection to the database with a 2 s timeout.
-function checkDb(callback) {
-  const socket = net.connect({ host: DB_HOST, port: DB_PORT });
-  let settled = false;
-  const settle = (err) => {
-    if (settled) return;
-    settled = true;
-    socket.destroy();
-    callback(err);
-  };
-  socket.setTimeout(2000);
-  socket.on('connect', () => settle(null));
-  socket.on('timeout', () => {
-    const err = new Error(`connect ETIMEDOUT ${DB_HOST}:${DB_PORT}`);
-    err.code = 'ETIMEDOUT';
-    settle(err);
-  });
-  socket.on('error', (err) => settle(err));
-}
-
-function sendJson(res, status, body) {
-  const payload = JSON.stringify(body);
+function send(res, status, payload) {
+  const body = JSON.stringify(payload);
   res.writeHead(status, {
     'Content-Type': 'application/json',
-    'Content-Length': Buffer.byteLength(payload)
+    'Content-Length': Buffer.byteLength(body),
+    // The portal is served from another host, so the browser preflights.
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
   });
-  res.end(payload);
+  res.end(body);
 }
 
-const server = http.createServer((req, res) => {
-  const url = req.url.split('?')[0];
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const correlationId = crypto.randomBytes(4).toString('hex');
 
-  if (req.method === 'GET' && url === '/api/health') {
-    sendJson(res, 200, { status: 'ok' });
-    return;
-  }
-
-  if (req.method === 'GET' && url === '/api/items') {
-    checkDb((err) => {
-      if (err) {
-        const code = err.code || 'ECONNFAILED';
-        log('ERROR', `db connect failed: connect ${code} ${DB_HOST}:${DB_PORT}`);
-        sendJson(res, 500, { error: 'database unavailable' });
-      } else {
-        log('INFO', `GET /api/items 200 (${FAKE_ROWS.length} rows, db ${DB_HOST}:${DB_PORT})`);
-        sendJson(res, 200, { rows: FAKE_ROWS });
-      }
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Methods': 'GET,OPTIONS',
     });
-    return;
+    return res.end();
   }
 
-  sendJson(res, 404, { error: 'not found' });
+  // Shallow by design — see the header comment.
+  if (url.pathname === '/healthz') {
+    return send(res, 200, { status: 'ok', service: SERVICE, version: VERSION });
+  }
+
+  // Lets the portal's status bar name the upstream it depends on without
+  // guessing. Also the first thing an FDE hits when triaging by hand.
+  if (url.pathname === '/api/meta') {
+    const t = db.target();
+    return send(res, 200, {
+      service: SERVICE,
+      version: VERSION,
+      pid: process.pid,
+      uptimeSeconds: Math.round(process.uptime()),
+      upstream: { host: t.host || '(unset)', port: t.port },
+      lastUpstreamSuccess,
+      logFile: log.logFile,
+    });
+  }
+
+  if (url.pathname === '/api/patients') {
+    const q = url.searchParams.get('q') || '';
+    const started = Date.now();
+    try {
+      const data = await db.fetchPatients(q, correlationId);
+      lastUpstreamSuccess = new Date().toISOString();
+      log.info('patient query served', {
+        cid: correlationId,
+        results: data.count,
+        ms: Date.now() - started,
+      });
+      return send(res, 200, data);
+    } catch (err) {
+      // One line, all the identifiers: error class, upstream host:port, cid.
+      // The portal renders these verbatim and the collector ships this file, so
+      // the string on the FDE's screen is the string in the bundle.
+      log.error('records database unreachable', {
+        cid: correlationId,
+        err: err.code,
+        upstream: `${err.host}:${err.port}`,
+        detail: JSON.stringify(err.message),
+        ms: Date.now() - started,
+      });
+      return send(res, 502, {
+        error: 'records_database_unreachable',
+        code: err.code,
+        upstream: { host: err.host, port: err.port },
+        correlationId,
+        detail: err.message,
+      });
+    }
+  }
+
+  send(res, 404, { error: 'not_found' });
 });
 
-server.listen(PORT, () => {
-  log(
-    'INFO',
-    `backend started on port ${PORT} (env_file=${envFilePath} DB_HOST=${DB_HOST} DB_PORT=${DB_PORT} log=${LOG_FILE})`
-  );
+server.listen(PORT, BIND, () => {
+  const t = db.target();
+  log.info('service started', {
+    version: VERSION,
+    bind: `${BIND}:${PORT}`,
+    upstream: `${t.host || '(unset)'}:${t.port}`,
+    pid: process.pid,
+  });
+  // Note what is NOT here: no upstream reachability check at boot.
+  maintenance.start();
+});
+
+process.on('SIGTERM', () => {
+  log.info('received SIGTERM, shutting down');
+  server.close(() => process.exit(0));
 });

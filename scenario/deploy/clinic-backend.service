@@ -1,0 +1,15 @@
+[Unit]
+Description=Cedar Hollow patient records backend
+After=network.target clinic-mockdb.service
+Wants=clinic-mockdb.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/clinic
+EnvironmentFile=/etc/clinic/backend.env
+ExecStart=/usr/bin/env node /opt/clinic/backend.js
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

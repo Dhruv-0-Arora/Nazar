@@ -1,21 +1,21 @@
-# Runbook: password and secret rotation
+# Runbook: password rotation
 
-Audience: all engineering.
-Last reviewed: 2026-03.
+Audience: all staff.
+Last reviewed: 2025-12.
 
-## User passwords
+## Policy
 
-Corporate passwords must be rotated every 12 months or immediately after a suspected compromise.
-MFA is mandatory on every account, so routine forced rotation is deliberately infrequent.
+Staff passwords rotate every 180 days.
+Service account credentials rotate annually and are held in the site credential vault.
+Shared front-desk accounts are not permitted.
 
-## Service secrets
+## Rotating a service account
 
-- API tokens rotate every 90 days via the secrets manager.
-- Database credentials rotate every 180 days during a maintenance window.
-- TLS certificates renew automatically 30 days before expiry.
+- Open a change ticket before rotating anything a running service depends on.
+- Update the vault entry first, then the consuming config, then restart the service.
+- Confirm the service recovered before closing the ticket.
 
-## Emergency rotation
+## Lockouts
 
-On suspected leakage, rotate the affected secret first and investigate second.
-Record every emergency rotation in the security log with a link to the incident.
-Never paste secrets into chat or tickets, even expired ones.
+Five failed attempts lock an account for fifteen minutes.
+Reception cannot unlock accounts; escalate to IT.

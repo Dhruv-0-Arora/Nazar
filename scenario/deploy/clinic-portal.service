@@ -1,0 +1,14 @@
+[Unit]
+Description=Cedar Hollow patient records portal
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/clinic
+EnvironmentFile=/etc/clinic/portal.env
+ExecStart=/usr/bin/env node /opt/clinic/portal.js
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

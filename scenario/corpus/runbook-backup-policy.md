@@ -1,22 +1,19 @@
 # Runbook: backup policy
 
-Audience: platform team.
-Last reviewed: 2025-12.
+Audience: site engineering.
+Last reviewed: 2026-02.
 
-## What is backed up
+## Schedule
 
-- File shares: nightly incremental, weekly full.
-- Databases: nightly dump plus continuous WAL archiving.
-- Laptops: user directories synced to the cloud drive, not centrally backed up.
+Records are snapshotted nightly at 02:00 local time by the `clinic-backup` timer.
+Snapshots are retained for 30 days on site and 12 months at the regional facility.
+Application logs are not part of the records backup and rotate separately.
 
-## Retention
+## Verifying a backup
 
-- Nightly backups are kept for 30 days.
-- Weekly fulls are kept for 6 months.
-- Year-end fulls are kept for 7 years for compliance.
+Check `systemctl status clinic-backup.timer` and the last run result.
+A failed timer does not affect patient lookups; the portal and records service are independent of the backup path.
 
-## Restore drills
+## Restore
 
-A restore drill runs on the first Monday of each quarter.
-The drill restores one database and one file share to a scratch host and verifies checksums.
-Failures open a P2 ticket automatically.
+Restores are coordinated with the regional team and are never performed during clinic hours.
