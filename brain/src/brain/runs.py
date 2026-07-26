@@ -27,11 +27,17 @@ class RunRegistry:
         run_id = f"run-{ts}-{uuid.uuid4().hex[:4]}"
         run_dir = self.cfg.runs / run_id
         (run_dir / "bundles").mkdir(parents=True)
-        for bid in bundle_ids:
-            src = self.cfg.inbox / bid
-            if not src.is_dir():
-                raise FileNotFoundError(f"bundle {bid} not found in inbox")
-            shutil.copytree(src, run_dir / "bundles" / bid)
+        try:
+            for bid in bundle_ids:
+                src = self.cfg.inbox / bid
+                if not src.is_dir():
+                    raise FileNotFoundError(f"bundle {bid} not found in inbox")
+                shutil.copytree(src, run_dir / "bundles" / bid)
+        except Exception:
+            # never leave a half-copied run dir behind: it has no meta.json,
+            # is invisible to the API, and silently poisons later debugging
+            shutil.rmtree(run_dir, ignore_errors=True)
+            raise
         if full_context is None:
             # FDE-on-site default: usb-received bundles get whole-bundle injection (ADR-0012)
             full_context = any(is_usb_bundle(self.cfg.inbox / bid) for bid in bundle_ids)

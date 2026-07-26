@@ -8,6 +8,7 @@ inbox root (CONTRACT.md section 5).
 import asyncio
 import shutil
 import time
+import traceback
 
 from ..config import Config
 from ..runs import RunRegistry
@@ -84,7 +85,9 @@ async def watch_loop(cfg: Config, registry: RunRegistry) -> None:
                 ctx = registry.create_run(batch, question="Diagnose the collected machines: find the root cause of any failure and propose a fix.")
                 registry.launch(ctx)
         except Exception:  # noqa: BLE001 - the watcher must survive anything
-            pass
+            # survive, but never silently: a swallowed create_run failure once
+            # cost a whole case with no trace of why
+            traceback.print_exc()
         await asyncio.sleep(cfg.poll_interval_s)
 
 
