@@ -66,6 +66,13 @@ def build_graph(chunks: list[Chunk], manifests: list[Manifest], store: GraphStor
     # -- extracted tier -------------------------------------------------
     for chunk in chunks:
         fid = evidence_node_id("file", chunk.file_path, machine_id=chunk.machine_id)
+        # a service's own files (status, journal, config) are its evidence
+        svc = _owning_service(chunk.file_path)
+        if svc and svc in machines.get(chunk.machine_id, Manifest("", "", "", "", "")).services:
+            sid = evidence_node_id("service", svc, machine_id=chunk.machine_id)
+            store.add_evidence(sid, chunk.id)
+            if sid not in chunk.mentions:
+                chunk.mentions.append(sid)
         for type_, value in _extract_entities(chunk.text):
             node = store.get_or_create(type_, value)
             store.add_evidence(node.id, chunk.id)

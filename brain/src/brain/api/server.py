@@ -16,6 +16,7 @@ from ..config import Config, load_config
 from ..ingest.watcher import watch_loop
 from ..llm import OllamaLLM
 from ..runs import RunRegistry
+from .console import create_console_router
 from .routes import create_router
 
 
@@ -47,6 +48,7 @@ def create_app(cfg: Config | None = None, llm=None) -> FastAPI:
     app.state.cfg = cfg
     app.state.registry = registry
     app.include_router(create_router(cfg, registry, llm))
+    app.include_router(create_console_router(cfg, registry))
 
     ui_dist = default_ui_dist()
     if ui_dist.is_dir():

@@ -4,7 +4,8 @@ This is the interface between the Brain service (M3/M4, Python/FastAPI) and the 
 The UI builds against mocked JSON matching these schemas and never talks to Ollama directly.
 Any change requires a version bump and sign-off from both owners.
 
-Note: the `ui/` currently in the repo (fde-console, see [ADR-0014](docs/decisions/ADR-0014-ui-swap-fde-console.md)) does not yet speak this contract - see [OPEN-QUESTIONS.md #8](docs/OPEN-QUESTIONS.md).
+Note: the `ui/` in the repo (fde-console, [ADR-0014](docs/decisions/ADR-0014-ui-swap-fde-console.md)) speaks the ConsoleApi surface (`/api/snapshot`, `/api/chat`, `/api/context`, `/api/stream`), served by the Brain as an adapter over the runs model below - see [ADR-0015](docs/decisions/ADR-0015-console-adapter.md).
+The runs API in this document remains the canonical contract; the console surface's shapes are defined by `ui/src/api/types.ts` and implemented in `brain/src/brain/api/console.py`.
 
 Base URL: `http://<brain-host>:8000`.
 The React build is served statically by the same FastAPI process at `/`, so there is one process and one port.

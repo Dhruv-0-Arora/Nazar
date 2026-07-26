@@ -23,7 +23,7 @@ Offline diagnostic "Brain": client machines are packaged into bundles by a bash 
   - `agent/` - JSON turn protocol, prompts, serial loop.
   - `events.py` - append-only per-run event log; SSE replays from it (ADR-0007).
   - `api/` - routes from API.md; also serves the built UI.
-- `ui/` - React + @xyflow/react + zustand + Tailwind (Vite), built static, served by the brain service on port 8000 (fde-console, see ADR-0014). Header toggle (or `VITE_USE_MOCK=false npm run dev`) switches between fixtures and the live Brain; its `ConsoleApi` client does not yet match `brain/api/routes.py` (OPEN-QUESTIONS.md #8).
+- `ui/` - React + @xyflow/react + zustand + Tailwind (Vite), built static, served by the brain service on port 8000 (fde-console, see ADR-0014). Header toggle (or `VITE_USE_MOCK=false npm run dev`) switches between fixtures and the live Brain; its ConsoleApi surface is served by the Brain's adapter `brain/api/console.py` (ADR-0015).
 - `integration/openclaw/` - operator layer (ADR-0011): `brainctl` CLI wrapping the Brain API + the OpenClaw `SKILL.md` + `install.sh`.
 - `transport-layer/usb-transport/` - FDE client stick (transport owner): interactive setup + collectors (bash/PowerShell) writing to `client/outbox/`, and `workstation/receive_bundle.py`. The Brain's `ingest/usb.py` wraps the receiver and normalizes its bundle dialect to CONTRACT v1.0; USB-received runs default to full-context injection (ADR-0012).
 - Runtime state is NOT in the repo: `~/brain/inbox/` and `~/brain/runs/` (`$BRAIN_HOME`).
@@ -46,7 +46,8 @@ Brain: NVIDIA GB10, 120 GB unified memory, Ubuntu. Python 3.12.3, Node, Ollama w
 ## Commands
 
 - Brain: `cd brain && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'`; tests: `.venv/bin/python -m pytest`; run: `.venv/bin/brain serve` (also `brain ingest <bundle>`, `brain pull <host>`, `brain graph <run_id>`).
-- UI: `cd ui && npm install && npm run build` (output ui/dist, auto-served by brain); dev: `npm run dev` (defaults to fixtures; header toggle or `VITE_USE_MOCK=false` switches to the live Brain).
+- UI: `cd ui && npm install && VITE_USE_MOCK=false npm run build` (output ui/dist, auto-served by brain, defaults to live); dev: `npm run dev` (defaults to fixtures; header toggle or `VITE_USE_MOCK=false` switches to the live Brain).
+- Linked interactive test: see `docs/RUNBOOK-LINKED-TEST.md` (single-machine variant and MacBook-over-ethernet variant).
 - Scenario: `scenario/scripts/run-local.sh` starts mockdb + backend + portal locally; `ENV_FILE=.local/backend.env scenario/scripts/inject.sh` plants the fault; `revert.sh` heals it. `scripts/build.sh` builds `dist/`; `deploy/install.sh laptop-a|laptop-b` installs under systemd; `scripts/nuke.sh --target /opt/clinic` strips hints before any evaluation run.
 - Collector: `./collector/collector.sh -o ~/bundles --services "backend" [--push <brain-host>]`.
 - Operator: `integration/openclaw/brainctl health|bundles|usb|diagnose|watch|report`.

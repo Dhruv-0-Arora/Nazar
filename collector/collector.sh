@@ -229,10 +229,15 @@ for svc in $services; do
     fi
 
     config_found=0
-    env_file="/etc/myapp/$svc.env"
-    if [ -f "$env_file" ] && copy_text_file "$env_file" "services/$svc/config/$(basename -- "$env_file")"; then
-        config_found=1
-    fi
+    # Env-file candidates: legacy /etc/myapp/<svc>.env, clinic-era /etc/clinic/<svc>.env,
+    # and for namespaced units like clinic-backend also /etc/clinic/backend.env.
+    svc_short=${svc#*-}
+    for env_file in "/etc/myapp/$svc.env" "/etc/clinic/$svc.env" "/etc/clinic/$svc_short.env"; do
+        if [ -f "$env_file" ] && copy_text_file "$env_file" "services/$svc/config/$(basename -- "$env_file")"; then
+            config_found=1
+            break
+        fi
+    done
     if [ -d "/etc/$svc" ]; then
         for cfg in "/etc/$svc"/*; do
             [ -f "$cfg" ] || continue
@@ -290,7 +295,7 @@ capture_app_log() {
     tail -n 500 -- "$src" >"$bundle_dir/$rel" 2>/dev/null
 }
 
-for log in /var/log/myapp/*.log; do
+for log in /var/log/myapp/*.log /var/log/clinic/*.log; do
     capture_app_log "$log" || true
 done
 
