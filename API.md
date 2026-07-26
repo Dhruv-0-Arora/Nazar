@@ -44,6 +44,7 @@ All API routes live under `/api/` to avoid colliding with UI routes.
 ```
 
 `state`: `ready` | `ingesting` | `rejected`.
+For `rejected` bundles, `machine_id`, `created_at`, and `services` are `null` when the manifest was missing or unparseable, and an additional `reason` field carries the contents of `reject-reason.txt`.
 
 ### POST /api/runs
 
@@ -108,6 +109,8 @@ When `failed`: an `error` string instead of `report`.
 - Events are persisted to `runs/<run_id>/events.jsonl` as they are emitted.
   On connect (or reconnect with `Last-Event-ID`), the server replays persisted events after the given seq, then continues live.
   The client dedupes by seq as a second line of defense.
+- A first connection may start mid-stream with `?from_seq=<seq>` (e.g. right after fetching a graph snapshot, whose `seq` says where to resume).
+  On automatic reconnect the `Last-Event-ID` header takes precedence over `from_seq`.
 - The stream ends after `done` or `error`.
   Connecting to a finished run replays the whole event log, which gives post-hoc replay for free.
 
@@ -179,7 +182,8 @@ Node:
 }
 ```
 
-- Evidence-layer node IDs are deterministic: `<type>:<value>` (e.g. `host:db.internal`, `machine:laptop-a`, `file:laptop-a:services/backend/config/backend.env`... exception: file node IDs use `file:<machine_id>/<path>` with `/` as the separator to keep the chunk-ID grammar unambiguous).
+- Evidence-layer node IDs are deterministic: `<type>:<value>` (e.g. `host:db.internal`, `machine:laptop-a`).
+  Exception: file node IDs use `file:<machine_id>/<path>` with `/` separating machine from path (e.g. `file:laptop-a/services/backend/config/backend.env`) to keep the chunk-ID grammar unambiguous.
 - Reasoning-layer node IDs are assigned by the store: `hyp:1`, `hyp:2`, `finding:1`.
 - `status` only applies to reasoning nodes. `label` is capped at 80 chars, enforced by the store.
 - `evidence` lists chunk IDs; the UI resolves them via `GET .../chunks/{chunk_id}` on click.
@@ -192,7 +196,7 @@ Edge:
 
 `rel` vocabulary:
 
-- Evidence layer: `located_on`, `has_config`, `from_file`, `mentions`, `listens_on`, `talks_to`.
+- Evidence layer: `located_on`, `has_config`, `mentions`, `listens_on`, `talks_to`.
 - Reasoning layer: `about` (reasoning node -> evidence node), `supports`, `contradicts`, `retrieved_by`.
 
 Graph delta ops (the `event: graph` payloads):
@@ -205,9 +209,11 @@ Graph delta ops (the `event: graph` payloads):
 
 Caps, enforced by the graph store, not the prompt (PLAN M4.1):
 
-- Reasoning layer: max 8 hypothesis nodes per run, max 5 finding nodes per hypothesis, hard total 150 reasoning nodes.
-- On overflow: reject the op and return an error to the agent loop, which tells the model in the next turn.
-- The evidence layer has no cap; the UI renders it as on-demand subgraphs, never the whole layer (see SPEC.md section 8).
+- Reasoning layer: max 8 hypothesis nodes per run, max 5 finding nodes per hypothesis (so at most 48 reasoning nodes).
+- A finding's `add_node` delta must carry `"parent": "hyp:N"` and `"stance": "supports" | "contradicts"`; the store creates the finding and the corresponding edge atomically, which is what makes the per-hypothesis cap enforceable.
+- On overflow (or an op referencing an unknown ID): reject the op and return an error to the agent loop, which tells the model in the next turn.
+- PLAN's 150-node figure survives as the UI's rendered-view budget (reasoning layer + 1-hop evidence halo); when exceeded, the UI trims halo nodes on `ruled_out` branches first (see ADR-0005).
+- The evidence layer itself is uncapped; the UI renders it as on-demand subgraphs, never the whole layer (see SPEC.md section 8).
 
 ### GET /api/runs/{run_id}/graph
 
@@ -223,6 +229,7 @@ Caps, enforced by the graph store, not the prompt (PLAN M4.1):
 {
   "chunk_id": "laptop-a:app_logs/backend.log:L120-L160",
   "text": "...verbatim chunk text...",
+  "bundle_id": "bundle-laptop-a-20260726T183000Z",
   "machine_id": "laptop-a",
   "file_path": "app_logs/backend.log",
   "span": [120, 160],

@@ -12,7 +12,7 @@ These were never unified.
 
 Three ranked modes, all depositing byte-identical bundles per CONTRACT.md:
 
-1. SSH pull (primary): Brain scp's manifest first, then the whole bundle. Default demo path.
+1. SSH pull (primary): the operator runs `brain pull <host>` on the Brain, which scp's the manifest first, then the whole bundle, from the client's `~/bundles/` output directory. Default demo path.
 2. scp push (fallback): last lines of collector.sh push to the Brain's inbox staging area.
 3. USB (tertiary): operator carries the bundle directory; `brain ingest <path>` on the Brain performs the atomic deposit.
 

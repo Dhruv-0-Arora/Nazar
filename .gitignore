@@ -1,0 +1,12 @@
+# runtime state (canonical home is ~/brain/, but never commit local copies)
+runs/
+inbox/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# node / ui build
+node_modules/
+ui/dist/

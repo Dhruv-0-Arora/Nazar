@@ -53,6 +53,7 @@ whackathon/
 │   ├── pyproject.toml
 │   ├── src/brain/
 │   │   ├── config.py           env-var config, paths, model name
+│   │   ├── cli.py              console entry: brain serve | pull <host..> | ingest <path> | graph ..
 │   │   ├── llm.py              the ONLY module that talks to Ollama
 │   │   ├── ingest/
 │   │   │   ├── watcher.py      inbox polling + case grouping
@@ -64,7 +65,7 @@ whackathon/
 │   │   │   ├── model.py        Node/Edge dataclasses, ID schemes, caps
 │   │   │   ├── build.py        structural + extracted tiers (deterministic)
 │   │   │   ├── store.py        networkx wrapper, delta emission, snapshots
-│   │   │   └── cli.py          debug CLI (inspect/mutate a run's graph)
+│   │   │   └── cli.py          `brain graph` subcommands (inspect/mutate a run's graph)
 │   │   ├── retrieval.py        search() + expand() facade used by the agent
 │   │   ├── agent/
 │   │   │   ├── protocol.py     JSON action schema, parsing, retries
@@ -137,7 +138,7 @@ FastAPI ──► SSE replay+live ──► React UI (query trail + live graph +
 Numbered walk-through:
 
 1. `inject.sh` plants the bug on laptop A and restarts the service. `systemctl` still reports running; requests fail; errors accumulate in the app log. The subtlety is the point.
-2. An operator runs `collector.sh` on each laptop. It writes a bundle per CONTRACT.md and (in push mode) scp's it to the Brain. In pull mode the Brain fetches `manifest.json` first, then the full bundle. At single-digit MB we always pull whole; the manifest still matters because it tells the Brain what it is looking at.
+2. An operator runs `collector.sh` on each laptop. It writes a bundle to `~/bundles/` per CONTRACT.md and (in push mode) scp's it to the Brain. In pull mode the operator runs `brain pull <host...>` on the Brain, which fetches each client's `manifest.json` first, then the full bundle. At single-digit MB we always pull whole; the manifest still matters because it tells the Brain what it is looking at.
 3. The watcher polls the inbox every 2 s. When a new valid bundle appears it starts a debounce window (default 10 s). Every bundle that lands inside the window joins the same case. This is what makes cross-machine synthesis possible: laptop A's and laptop B's bundles are indexed together. See [ADR-0006](docs/decisions/ADR-0006-case-based-runs.md).
 4. Ingest runs the three-stage pipeline (section 6). Chunking is deterministic; BM25 and the evidence graph are built once per run and never rebuilt mid-run.
 5. The agent loop (section 7) runs at most `BRAIN_MAX_TURNS` (default 5) retrieval turns plus one conclude turn, emitting events throughout.
@@ -153,7 +154,7 @@ All indexing happens on the Brain, never on clients (PLAN C1: the sick machine m
 `chunker.chunk_bundle(bundle_dir, manifest) -> list[Chunk]`
 
 ```python
-@dataclass(frozen=True)
+@dataclass
 class Chunk:
     id: str            # CONTRACT.md section 6 grammar
     text: str          # verbatim source material
@@ -162,7 +163,10 @@ class Chunk:
     span: tuple[int, int]
     kind: Literal["evidence", "knowledge"]   # docs/ -> knowledge, else evidence
     bundle_id: str
+    mentions: list[str] = field(default_factory=list)   # node IDs, filled by the graph builder
 ```
+
+Every field except `mentions` is set once by the chunker and never changed; `mentions` is populated during graph build (section 6.3).
 
 Per-file-type strategy (from PLAN M3 stage 1):
 
@@ -178,7 +182,7 @@ Chunking is deterministic and stable because it is the retrieval substrate and t
 Graph extraction is fuzzy and iterative; it must be able to rebuild ten times without invalidating chunk IDs.
 This is why chunks and nodes are distinct objects (see [ADR-0004](docs/decisions/ADR-0004-chunks-vs-nodes.md)).
 
-The chunk store is an in-memory dict `chunk_id -> Chunk`, serialized once to `runs/<run_id>/chunks.jsonl`.
+The chunk store is an in-memory dict `chunk_id -> Chunk`, serialized once to `runs/<run_id>/chunks.jsonl` after the graph build so `mentions` is populated.
 
 ### 6.2 BM25 index
 
@@ -205,10 +209,10 @@ for chunk in chunk_store:
 Two deterministic tiers (PLAN M3 stage 3):
 
 - Structural tier (zero inference): `machine`, `service`, `file` nodes straight from the manifest and directory layout; edges `file -located_on-> machine`, `service -has_config-> file`, and chunks linked to files via metadata.
-- Extracted tier (regex): `ip`, `port`, `host`, `env_var`, `error`, `ticket` nodes with `mentions` edges back to chunks.
+- Extracted tier (regex): `ip`, `port`, `host`, `env_var`, `error`, `ticket` nodes with `mentions` edges back to chunks. The `ss -tlnp` section of `network.txt` additionally yields `service -listens_on-> port` edges.
 - Cross-reference pass (the money edge): when a config chunk on machine B mentions an IP/port/hostname that resolves to machine A, emit `service -talks_to-> service`. When an extracted `host` matches no machine and no interface in any bundle, mark the `talks_to` edge `dangling: true`. For the demo scenario, that dangling edge IS the bug rendered as topology.
 
-The optional LLM concept tier from PLAN is cut from MVP; the seam exists because reasoning-layer nodes (section 7) use the same store.
+PLAN's optional LLM concept tier is not cut but subsumed: it IS the reasoning layer (section 7), living in the same store (see [ADR-0005](docs/decisions/ADR-0005-two-layer-graph.md)).
 
 Store: `networkx.MultiDiGraph` in memory wrapped by `graph/store.py`, which is the only mutation path and therefore the single place that enforces caps, assigns edge IDs, and emits `event: graph` deltas.
 Serialized to `runs/<run_id>/graph.json` (schema in API.md section 4).
@@ -236,6 +240,9 @@ The model emits:
   "conclude": false
 }
 ```
+
+Node IDs are assigned by the store and returned in the next feedback message, so a `set_status` (or an edge endpoint) may only reference IDs from earlier turns; in this example `hyp:1` was created in a previous turn.
+Ops referencing unknown IDs are rejected with an error in the feedback.
 
 The loop executes all `search` actions concurrently (BM25 is CPU-cheap; this is PLAN M3.5's within-turn fan-out), applies graph deltas through the store (which returns assigned IDs or cap errors), executes `expand`, and feeds results back as the next user turn:
 
@@ -329,7 +336,7 @@ Every run is a future eval case and fine-tuning example.
 | report fails schema | 1 retry with errors, then run `failed`, raw preserved |
 | graph cap overflow | op rejected, error returned to model in next turn |
 | SSE client disconnect | reconnect + `Last-Event-ID` replay from events.jsonl |
-| watcher crash | systemd unit restarts it; inbox scan is idempotent (processed bundle ids recorded in runs/) |
+| brain service crash | one systemd unit runs the whole service (the watcher is an asyncio task inside the FastAPI lifespan, so "two processes on the Brain" stays true); on restart the inbox rescan is idempotent (processed bundle ids recorded in runs/) and in-flight runs are marked `failed` |
 
 ## 12. Environment and versions
 

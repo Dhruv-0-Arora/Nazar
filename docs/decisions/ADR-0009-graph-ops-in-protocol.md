@@ -22,4 +22,4 @@ A literal CLI would mean teaching the loop to parse shell-ish strings from the m
 
 ## Consequences
 
-- PLAN M4.1's CLI grammar becomes the delta schema in API.md section 4; nothing about caps, statuses, or returned IDs changes.
+- PLAN M4.1's CLI grammar becomes the delta schema in API.md section 4; statuses and returned IDs behave exactly as PLAN specified. Cap values and overflow handling are recorded in ADR-0005.

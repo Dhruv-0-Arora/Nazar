@@ -31,3 +31,5 @@ One store (`graph/store.py`), every node tagged `layer: evidence | reasoning`.
 
 - PLAN M4.1's "model calls a CLI" becomes "model emits graph ops in its JSON turn"; see ADR-0009.
 - The concept tier from PLAN M3 is subsumed: it IS the reasoning layer, so nothing was actually cut.
+- Node-type vocabulary changes from PLAN, recorded here deliberately: PLAN M4.1's reasoning types `{hypothesis|evidence|cause}` become `{hypothesis|finding}`. "Evidence" as a reasoning type collided with the evidence layer's name, and a "cause" is just a hypothesis with `status: confirmed`, not a separate type. PLAN M3's structural-tier `Bundle` node is also dropped: bundle identity already lives in chunk metadata and `/api/bundles`, and a bundle node would only add an uninformative hub to every subgraph.
+- Cap-overflow behavior also changes from PLAN, which said "evict lowest-BM25-score evidence on ruled-out branches". That splits into two mechanisms: the store rejects ops beyond the cap (agent-facing, keeps the model honest), and the UI trims 1-hop halo nodes on `ruled_out` branches when the rendered view exceeds the ~150-node budget (display-facing, keeps PLAN's eviction intent).

@@ -108,7 +108,7 @@ Deposits must be atomic so the watcher never sees a half-copied bundle:
 The watcher only considers directories at the inbox root whose names start with `bundle-`.
 It ignores `.staging/` and any dotfile.
 
-- SSH pull mode: the Brain performs both steps itself.
+- SSH pull mode: `collector.sh` writes the bundle to `~/bundles/` on the client (override with `-o <dir>`); the operator runs `brain pull <host>` on the Brain, which fetches the newest `bundle-*` from that directory (manifest first, then the whole bundle) and performs both steps.
 - scp push mode: the client scp's into `.staging/` and then runs `ssh brain mv ...` (the last two lines of `collector.sh`).
 - USB mode: the operator runs `brain ingest /media/usb/bundle-<...>` on the Brain, which performs the two steps.
 
