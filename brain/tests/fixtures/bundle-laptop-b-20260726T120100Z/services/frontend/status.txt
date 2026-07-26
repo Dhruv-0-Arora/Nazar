@@ -1,0 +1,4 @@
+* frontend.service - Demo company frontend
+     Loaded: loaded (/etc/systemd/system/frontend.service; enabled)
+     Active: active (running) since Sat 2026-07-25 10:00:05 UTC; 1 day ago
+   Main PID: 1520 (node)

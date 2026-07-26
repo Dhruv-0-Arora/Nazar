@@ -1,0 +1,4 @@
+2026-07-26T11:58:44.121Z ERROR db connect failed: connect ENOTFOUND db.internal:5432
+2026-07-26T11:58:52.300Z ERROR db connect failed: connect ENOTFOUND db.internal:5432
+2026-07-26T11:59:10.014Z INFO GET /api/health 200
+2026-07-26T11:59:31.877Z ERROR db connect failed: connect ENOTFOUND db.internal:5432

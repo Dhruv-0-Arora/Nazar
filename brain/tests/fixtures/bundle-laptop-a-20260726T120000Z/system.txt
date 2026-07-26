@@ -1,0 +1,15 @@
+### CMD: systemctl --failed ###
+  UNIT LOAD ACTIVE SUB DESCRIPTION
+0 loaded units listed.
+### CMD: uptime ###
+ 12:00:01 up 3 days,  4:12,  1 user,  load average: 0.15, 0.10, 0.09
+### CMD: df -h ###
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  456G   88G  345G  21% /
+### CMD: free -m ###
+               total        used        free
+Mem:           15895        2110       11408
+### CMD: top -b -n 1 | head -30 ###
+top - 12:00:02 up 3 days,  4:12,  1 user
+Tasks: 212 total, 1 running
+%Cpu(s): 2.1 us, 0.8 sy, 0.0 ni, 96.9 id

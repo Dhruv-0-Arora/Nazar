@@ -1,0 +1,14 @@
+[Unit]
+Description=Acme scenario frontend (the symptom)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/myapp/frontend
+Environment=ENV_FILE=/etc/myapp/frontend.env
+ExecStart=/usr/bin/env node /opt/myapp/frontend/server.js
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

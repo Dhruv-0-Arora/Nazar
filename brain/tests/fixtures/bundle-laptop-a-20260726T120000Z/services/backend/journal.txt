@@ -1,0 +1,4 @@
+Jul 26 08:12:11 laptop-a systemd[1]: Started backend.service.
+Jul 26 08:12:11 laptop-a node[1841]: 2026-07-26T08:12:11.402Z INFO backend starting on port 3001 (DB_HOST=db.internal DB_PORT=5432)
+Jul 26 11:58:44 laptop-a node[1841]: 2026-07-26T11:58:44.121Z ERROR db connect failed: connect ENOTFOUND db.internal:5432
+Jul 26 11:59:31 laptop-a node[1841]: 2026-07-26T11:59:31.877Z ERROR db connect failed: connect ENOTFOUND db.internal:5432

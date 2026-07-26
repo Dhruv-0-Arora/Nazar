@@ -23,7 +23,8 @@ Offline diagnostic "Brain": client machines are packaged into bundles by a bash 
   - `agent/` - JSON turn protocol, prompts, serial loop.
   - `events.py` - append-only per-run event log; SSE replays from it (ADR-0007).
   - `api/` - routes from API.md; also serves the built UI.
-- `ui/` - React + sigma.js, built static, served by the brain service on port 8000.
+- `ui/` - React + sigma.js + TypeScript (Vite), built static, served by the brain service on port 8000. `npm run mock` demos the full UI with no backend.
+- `integration/openclaw/` - operator layer (ADR-0011): `brainctl` CLI wrapping the Brain API + the OpenClaw `SKILL.md` + `install.sh`.
 - Runtime state is NOT in the repo: `~/brain/inbox/` and `~/brain/runs/` (`$BRAIN_HOME`).
 
 ## Conventions and invariants
@@ -39,8 +40,16 @@ Offline diagnostic "Brain": client machines are packaged into bundles by a bash 
 
 ## Environment
 
-Brain: NVIDIA GB10, 120 GB unified memory, Ubuntu. Python 3.12.3, Node, Ollama with qwen3.5:122b (81 GB, primary) and qwen3-embedding:8b (future retrieval upgrade). Ports: brain 8000, Ollama 11434. `OLLAMA_NUM_PARALLEL=1` until measured (OPEN-QUESTIONS #4).
+Brain: NVIDIA GB10, 120 GB unified memory, Ubuntu. Python 3.12.3, Node, Ollama with qwen3.5:122b (81 GB, primary) and qwen3-embedding:8b (future retrieval upgrade). Ports: brain 8000, Ollama 11434. `OLLAMA_NUM_PARALLEL=1` until measured (OPEN-QUESTIONS #3). OpenClaw is the operator-facing chat layer, integrated via the Brain API only (`integration/openclaw/`, ADR-0011); OpenShell is deferred to the future autofix phase.
+
+## Commands
+
+- Brain: `cd brain && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'`; tests: `.venv/bin/python -m pytest`; run: `.venv/bin/brain serve` (also `brain ingest <bundle>`, `brain pull <host>`, `brain graph <run_id>`).
+- UI: `cd ui && npm install && npm run build` (output ui/dist, auto-served by brain); dev: `npm run dev`; no-backend demo: `npm run mock`.
+- Scenario: `scenario/run-local.sh` starts mock-db + backend + frontend locally; `scenario/inject.sh` plants the bug; `scenario/revert.sh` heals it.
+- Collector: `./collector/collector.sh -o ~/bundles --services "backend" [--push <brain-host>]`.
+- Operator: `integration/openclaw/brainctl health|bundles|diagnose|watch|report`.
 
 ## Current phase
 
-Planning/foundation only; no implementation yet. Standing goal: keep improving SPEC/contracts until PLAN-vs-SPEC inconsistencies are all either resolved in ADRs or listed in OPEN-QUESTIONS.md.
+Phase 1 base implementation is DONE and tested end to end (29 pytest tests, UI builds clean, scenario E2E-verified, real-model run exercised). Standing goal: keep improving SPEC/contracts until PLAN-vs-SPEC inconsistencies are all either resolved in ADRs or listed in OPEN-QUESTIONS.md; keep code and SPEC in lockstep as features land.

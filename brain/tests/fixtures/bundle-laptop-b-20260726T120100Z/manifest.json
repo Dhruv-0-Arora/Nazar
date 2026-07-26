@@ -1,0 +1,23 @@
+{
+  "contract_version": "1.0",
+  "bundle_id": "bundle-laptop-b-20260726T120100Z",
+  "machine_id": "laptop-b",
+  "hostname": "laptop-b",
+  "created_at": "2026-07-26T12:01:00Z",
+  "os": "Ubuntu 24.04.2 LTS",
+  "kernel": "6.8.0-45-generic",
+  "collector_version": "1.0.0",
+  "services": ["frontend"],
+  "files": [
+    {"path": "system.txt", "bytes": 400, "truncated": false},
+    {"path": "network.txt", "bytes": 700, "truncated": false},
+    {"path": "processes.txt", "bytes": 250, "truncated": false},
+    {"path": "services/frontend/status.txt", "bytes": 240, "truncated": false},
+    {"path": "services/frontend/journal.txt", "bytes": 300, "truncated": false},
+    {"path": "services/frontend/config/frontend.env", "bytes": 60, "truncated": false},
+    {"path": "app_logs/frontend.log", "bytes": 300, "truncated": false},
+    {"path": "docs/db-migration-2025.md", "bytes": 350, "truncated": false},
+    {"path": "docs/ticket-2025-03-frontend-502.md", "bytes": 400, "truncated": false}
+  ],
+  "notes": "frontend shows BACKEND UNAVAILABLE"
+}

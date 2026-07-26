@@ -1,0 +1,18 @@
+{
+  "laptop-a": [
+    "runbook-backend-config.md",
+    "ticket-2024-11-printer-jam.md",
+    "ticket-2024-09-monitor-flicker.md",
+    "runbook-onboarding.md",
+    "runbook-backup-policy.md"
+  ],
+  "laptop-b": [
+    "db-migration-2025.md",
+    "ticket-2025-03-frontend-502.md",
+    "ticket-2025-01-vpn-dropouts.md",
+    "ticket-2025-05-ci-disk-space.md",
+    "runbook-guest-wifi.md",
+    "runbook-password-rotation.md",
+    "runbook-meeting-rooms.md"
+  ]
+}

@@ -1,0 +1,6 @@
+* backend.service - Demo company backend
+     Loaded: loaded (/etc/systemd/system/backend.service; enabled)
+     Active: active (running) since Sun 2026-07-26 08:12:11 UTC; 3h 48min ago
+   Main PID: 1841 (node)
+      Tasks: 11
+     Memory: 64.2M

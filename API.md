@@ -210,7 +210,7 @@ Graph delta ops (the `event: graph` payloads):
 Caps, enforced by the graph store, not the prompt (PLAN M4.1):
 
 - Reasoning layer: max 8 hypothesis nodes per run, max 5 finding nodes per hypothesis (so at most 48 reasoning nodes).
-- A finding's `add_node` delta must carry `"parent": "hyp:N"` and `"stance": "supports" | "contradicts"`; the store creates the finding and the corresponding edge atomically, which is what makes the per-hypothesis cap enforceable.
+- A finding's `add_node` delta must carry `"parent": "hyp:N"` and `"stance": "supports" | "contradicts"` as fields INSIDE the `node` object; the store creates the finding and the edge `finding -<stance>-> hypothesis` atomically, which is what makes the per-hypothesis cap enforceable.
 - On overflow (or an op referencing an unknown ID): reject the op and return an error to the agent loop, which tells the model in the next turn.
 - PLAN's 150-node figure survives as the UI's rendered-view budget (reasoning layer + 1-hop evidence halo); when exceeded, the UI trims halo nodes on `ruled_out` branches first (see ADR-0005).
 - The evidence layer itself is uncapped; the UI renders it as on-demand subgraphs, never the whole layer (see SPEC.md section 8).

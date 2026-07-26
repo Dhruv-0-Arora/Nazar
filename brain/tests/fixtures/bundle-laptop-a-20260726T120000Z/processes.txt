@@ -1,0 +1,4 @@
+USER         PID %CPU %MEM    VSZ   RSS COMMAND
+root           1  0.0  0.1 167k  12k /sbin/init
+app         1841  0.3  0.8 720k  65k node /opt/myapp/backend/server.js
+app         1799  0.0  0.4 650k  38k node /opt/myapp/mock-db/server.js

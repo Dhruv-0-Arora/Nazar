@@ -24,6 +24,7 @@ The demo scenario: a two-machine fake company system (Node backend on laptop A, 
 | Transport + contracts | C1/C2 | `CONTRACT.md` | us |
 | Brain service (ingest, index, graph, agent, API) | M3/M4 | `brain/` | us |
 | UI (React + sigma.js) | M4.1/M4.2 | `ui/` | us / teammate (UI owner) |
+| OpenClaw operator layer | M4.3 | `integration/openclaw/` | us |
 
 "Us" here is the architecture/foundation portion this spec covers in full detail.
 The scenario package is specified only at its interfaces (what the collector must capture, what ground_truth.md must contain).
@@ -72,6 +73,7 @@ whackathon/
 │   │   │   ├── prompts.py      system + turn templates (static, cache-safe)
 │   │   │   └── loop.py         the serial turn loop, budgets, fan-out
 │   │   ├── events.py           append-only event log, seq numbers
+│   │   ├── runs.py             run registry: run_id, meta.json, lifecycle, live-run state
 │   │   ├── report.py           report.json validation + markdown rendering
 │   │   └── api/
 │   │       ├── server.py       FastAPI app, static UI mount, lifespan
@@ -85,6 +87,8 @@ whackathon/
 │       ├── api/                typed client for API.md + SSE hook
 │       ├── views/              RunsList, LiveRun, ReportView
 │       └── graph/              sigma renderer + delta patcher
+├── integration/
+│   └── openclaw/               operator-layer skill: SKILL.md + brainctl (section 15)
 └── .gitignore                  ignores runs/, inbox contents, node_modules
 ```
 
@@ -306,7 +310,7 @@ Client-side rules (binding): rAF-batched token flush; seq-number dedupe on SSE r
 - Across cases: the watcher dispatches each case to a worker task; runs are fully independent (own chunk store, index, graph, event log). Bounded by a semaphore equal to `OLLAMA_NUM_PARALLEL`.
 - Within a turn: all N search queries fan out concurrently.
 - The loop itself is serial.
-- Ollama config: `OLLAMA_MAX_LOADED_MODELS=1`. `OLLAMA_NUM_PARALLEL` starts at 1: qwen3.5:122b weighs 81 GB on a 120 GB box, and a second KV cache plus OS plus the embedding model is unverified headroom. Measure; raise to 2 only if it demonstrably fits. Predictable serial latency beats swapping mid-demo. (Deviation from PLAN's assumed 2; see OPEN-QUESTIONS #4.)
+- Ollama config: `OLLAMA_MAX_LOADED_MODELS=1`. `OLLAMA_NUM_PARALLEL` starts at 1: qwen3.5:122b weighs 81 GB on a 120 GB box, and a second KV cache plus OS plus the embedding model is unverified headroom. Measure; raise to 2 only if it demonstrably fits. Predictable serial latency beats swapping mid-demo. (Deviation from PLAN's assumed 2; see OPEN-QUESTIONS #3.)
 
 ## 10. runs/ directory (eval harness for free)
 
@@ -343,7 +347,7 @@ Every run is a future eval case and fine-tuning example.
 | Thing | Version / value | Note |
 |---|---|---|
 | Python | 3.12.x (3.12.3 already on the Brain) | pinned in pyproject; no new install needed |
-| Python deps | fastapi, uvicorn, rank_bm25, networkx, httpx, sse-starlette, pydantic | all pure-python or wheel-safe on 3.12 |
+| Python deps | fastapi, uvicorn, rank_bm25, networkx, httpx, pydantic | all pure-python or wheel-safe on 3.12; SSE is hand-rolled over events.jsonl |
 | Node | already installed | UI build only; not needed at runtime on clients |
 | Ollama models | qwen3.5:122b (primary), qwen3-embedding:8b (future embeddings seam) | already pulled |
 | collector.sh | bash + coreutils only | zero dependencies, fits on a USB stick |
@@ -358,7 +362,16 @@ Every run is a future eval case and fine-tuning example.
 5. Track D (collector): collector.sh against a healthy machine -> against the bugged one -> eyeball that the env var error is captured in the bundle.
 6. Integration: real bundle replaces the fixture; pre-demo checklist from PLAN C1 (SSH keys both ways, inbox permissions, one dry-run scp, static IPs pinned for cable mode).
 
-## 14. Risks
+## 14. Operator layer: OpenClaw (M4.3)
+
+Required scope per [ADR-0011](docs/decisions/ADR-0011-openclaw-operator-layer.md): OpenClaw is the chat-facing operator layer; OpenShell is deferred to the autofix phase; NemoClaw is out of scope.
+
+- `integration/openclaw/brainctl`: a small bash CLI wrapping the Brain API (curl only, no other deps): `brainctl bundles`, `brainctl diagnose [bundle_id...] [-q question]`, `brainctl runs`, `brainctl watch <run_id>` (follows the SSE stream, prints the trail), `brainctl report <run_id>` (prints report markdown). Reads `BRAIN_URL` (default `http://127.0.0.1:8000`).
+- `integration/openclaw/SKILL.md`: the OpenClaw skill definition teaching the agent when and how to use `brainctl`, with the workflow (list bundles -> diagnose -> watch -> summarize report with citations) and guardrails (never apply fixes; present `proposed_fix_script` for human review per ADR-0010).
+- `integration/openclaw/install.sh`: copies/symlinks the skill into the local OpenClaw skills directory and `brainctl` onto PATH.
+- Boundary rules: OpenClaw consumes the Brain API exactly as the UI does, gains no private endpoints, and never talks to Ollama about diagnosis; the Brain remains the only diagnostic reasoner.
+
+## 15. Risks
 
 - 81 GB model on 120 GB unified memory: concurrency and thinking-mode budgets are guesses until `metrics.json` says otherwise. Measure on day one.
 - Regex entity extraction quality gates the money edge; the fixture bundle must exercise every extractor.
