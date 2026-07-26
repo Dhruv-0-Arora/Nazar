@@ -1,100 +1,82 @@
-// Root: tiny hash-based view switch (no router lib) plus health banner.
-// Routes: #/ -> RunsList, #/runs/<run_id> -> LiveRun or ReportView by status.
+import { useEffect } from "react";
+import { Header } from "./components/Header";
+import { MachineRail } from "./components/MachineRail";
+import { AgentPanel } from "./panels/AgentPanel";
+import { GraphPanel } from "./panels/GraphPanel";
+import { LogsPanel } from "./panels/LogsPanel";
+import { ProcessPanel } from "./panels/ProcessPanel";
+import { useStore, type TabId } from "./store/useStore";
 
-import { useEffect, useState } from "react";
-import { getHealthz, getRun } from "./api/client";
-import type { RunDetail } from "./api/types";
-import ChunkDrawer from "./components/ChunkDrawer";
-import { isMock } from "./mock";
-import LiveRun from "./views/LiveRun";
-import ReportView from "./views/ReportView";
-import RunsList from "./views/RunsList";
+const TABS: { id: TabId; label: string }[] = [
+  { id: "agent", label: "Agent" },
+  { id: "graph", label: "Evidence graph" },
+  { id: "logs", label: "Logs" },
+  { id: "processes", label: "Work in flight" },
+];
 
-type Route = { view: "list" } | { view: "run"; runId: string };
+export function App() {
+  const tab = useStore((s) => s.tab);
+  const setTab = useStore((s) => s.setTab);
+  const connect = useStore((s) => s.connect);
+  const snapshot = useStore((s) => s.snapshot);
+  const selectedMachine = useStore((s) => s.selectedMachine);
+  const machines = useStore((s) => s.snapshot?.machines ?? []);
+  const selectMachine = useStore((s) => s.selectMachine);
 
-function parseHash(): Route {
-  const hash = window.location.hash.replace(/^#\/?/, "");
-  const parts = hash.split("/").filter(Boolean);
-  if (parts[0] === "runs" && parts[1]) return { view: "run", runId: decodeURIComponent(parts[1]) };
-  return { view: "list" };
-}
+  useEffect(() => connect(), [connect]);
 
-function useHashRoute(): Route {
-  const [route, setRoute] = useState<Route>(parseHash);
-  useEffect(() => {
-    const onChange = () => setRoute(parseHash());
-    window.addEventListener("hashchange", onChange);
-    return () => window.removeEventListener("hashchange", onChange);
-  }, []);
-  return route;
-}
-
-function RunPage({ runId }: { runId: string }) {
-  const [run, setRun] = useState<RunDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [drawerChunk, setDrawerChunk] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setRun(null);
-    setError(null);
-    getRun(runId)
-      .then((r) => {
-        if (!cancelled) setRun(r);
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [runId]);
-
-  if (error) return <div className="page error-text">{error}</div>;
-  if (!run) return <div className="page muted">Loading run...</div>;
-
-  if (run.status === "done" || run.status === "failed") {
-    return (
-      <div className="page">
-        <header className="live-head">
-          <a href="#/" className="back-link">
-            runs
-          </a>
-          <code className="run-id">{run.run_id}</code>
-          <span className={`badge badge-${run.status}`}>{run.status}</span>
-        </header>
-        <ReportView run={run} onOpenChunk={setDrawerChunk} />
-        {drawerChunk && (
-          <ChunkDrawer runId={runId} chunkId={drawerChunk} onClose={() => setDrawerChunk(null)} />
-        )}
-      </div>
-    );
-  }
-
-  return <LiveRun runId={runId} />;
-}
-
-export default function App() {
-  const route = useHashRoute();
-  const [ollama, setOllama] = useState<string>("ok");
-
-  useEffect(() => {
-    getHealthz()
-      .then((h) => setOllama(h.ollama))
-      .catch(() => setOllama("brain service unreachable"));
-  }, []);
+  const filterName = machines.find((m) => m.id === selectedMachine)?.hostname;
 
   return (
-    <div className="app">
-      <header className="app-head">
-        <a href="#/" className="app-title">
-          Brain
-        </a>
-        <span className="app-subtitle">offline diagnostics</span>
-        {isMock && <span className="badge badge-mock">mock mode</span>}
-      </header>
-      {ollama !== "ok" && <div className="banner-warn">Ollama unavailable: {ollama}</div>}
-      {route.view === "list" ? <RunsList /> : <RunPage key={route.runId} runId={route.runId} />}
+    <div className="flex h-full flex-col">
+      <Header />
+
+      <div className="flex min-h-0 flex-1">
+        <MachineRail />
+
+        <main className="flex min-w-0 flex-1 flex-col">
+          <nav className="hair flex items-center gap-1 border-b px-2">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`border-b-2 px-3 py-2 text-[12px] transition-colors ${
+                  tab === t.id
+                    ? "border-live text-bright"
+                    : "text-dim hover:text-body border-transparent"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+
+            {filterName && (
+              <button
+                onClick={() => selectMachine(null)}
+                className="text-live hair ml-auto rounded border px-2 py-0.5 text-[10px]"
+              >
+                filtered to {filterName} — clear
+              </button>
+            )}
+          </nav>
+
+          <div className="min-h-0 flex-1">
+            {!snapshot ? (
+              <div className="text-dim px-4 py-6">
+                Waiting for the first bundle to land in the inbox.
+              </div>
+            ) : tab === "agent" ? (
+              <AgentPanel />
+            ) : tab === "graph" ? (
+              <GraphPanel />
+            ) : tab === "logs" ? (
+              <LogsPanel />
+            ) : (
+              <ProcessPanel />
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

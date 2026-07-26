@@ -49,3 +49,12 @@ Needs: a rehearsal-time call; the code supports both either way.
 SPEC stores a verbatim copy of each case's bundles in `runs/<run_id>/bundles/` for reproducibility (PLAN M3: "every run saves the bundle copy").
 If disk churn on the Brain becomes a concern with many runs, switch to hard-links or references.
 Low stakes; default stands unless someone objects.
+
+## 8. UI/backend API contract mismatch (fde-console vs API.md)
+
+ADR-0014 folded fde-console into `ui/`, replacing the sigma.js scaffold.
+Its `ConsoleApi` client expects a single always-on console (`GET /api/snapshot`, `POST /api/chat` streaming NDJSON, `PUT /api/context`, `GET /api/stream` for a full snapshot) built around one continuous run with chat-style interaction.
+`brain/api/routes.py` implements the runs/report model in API.md instead: `POST /api/runs` starts a discrete job, `GET /api/runs/{id}/stream` replays that job's event log, `report.json` lands on completion.
+These are different interaction models, not just different field names.
+Options: (a) add a `ConsoleApi`-shaped surface to `brain/api/routes.py` alongside or instead of the runs API, (b) rewrite `ui/src/api/live.ts` + `types.ts` to consume the existing runs/report API and adapt it into a snapshot shape client-side.
+Needs: UI owner + Brain owner sign-off (API.md changes require both, per its own header).

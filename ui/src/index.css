@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+/*
+  Field-diagnostic rig, not a SaaS dashboard. Deep slate ground (never pure black),
+  amber for anything live, cyan for retrieved evidence, coral reserved for critical.
+  Monospace-first: this is a tool for reading logs, and it keeps us off webfonts,
+  which matters because the demo box has no internet.
+*/
+@theme {
+  --color-ground: #0d141a;
+  --color-panel: #131c24;
+  --color-raised: #1a252f;
+  --color-hair: #24323d;
+  --color-dim: #6b8394;
+  --color-body: #b9cbd6;
+  --color-bright: #eaf3f7;
+
+  --color-live: #f0a63c;
+  --color-evidence: #46c9c0;
+  --color-critical: #f0655a;
+  --color-settled: #7fa88c;
+
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo,
+    Consolas, monospace;
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ground);
+  color: var(--color-body);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hairlines carry the structure; keep them thin and consistent. */
+.hair {
+  border-color: var(--color-hair);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-hair);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-dim);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-live);
+  outline-offset: 1px;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.breathe {
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* React Flow needs its own surface colors overridden. */
+.react-flow__background {
+  background: var(--color-ground);
+}
+.react-flow__edge-path {
+  stroke-width: 1.5;
+}
+.react-flow__controls-button {
+  background: var(--color-raised);
+  border-color: var(--color-hair);
+  fill: var(--color-body);
+}

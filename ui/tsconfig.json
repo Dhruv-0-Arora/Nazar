@@ -6,14 +6,13 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
+    "noEmit": true,
     "skipLibCheck": true,
-    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
     "isolatedModules": true,
-    "types": ["vite/client"],
-    "noEmit": true
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "types": ["vite/client"]
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src"]
 }

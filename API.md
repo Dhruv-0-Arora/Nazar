@@ -1,8 +1,10 @@
 # API.md - Brain Service API Contract (v1.0)
 
-This is the interface between the Brain service (M3/M4, Python/FastAPI) and the UI (M4.1, React + sigma.js).
+This is the interface between the Brain service (M3/M4, Python/FastAPI) and the UI (M4.1, React), as implemented by `brain/api/routes.py`.
 The UI builds against mocked JSON matching these schemas and never talks to Ollama directly.
 Any change requires a version bump and sign-off from both owners.
+
+Note: the `ui/` currently in the repo (fde-console, see [ADR-0014](docs/decisions/ADR-0014-ui-swap-fde-console.md)) does not yet speak this contract - see [OPEN-QUESTIONS.md #8](docs/OPEN-QUESTIONS.md).
 
 Base URL: `http://<brain-host>:8000`.
 The React build is served statically by the same FastAPI process at `/`, so there is one process and one port.

@@ -23,7 +23,7 @@ The demo scenario: a two-machine fake company system (Node backend on laptop A, 
 | Client collector | M2 | `collector/` | us |
 | Transport + contracts | C1/C2 | `CONTRACT.md` | us |
 | Brain service (ingest, index, graph, agent, API) | M3/M4 | `brain/` | us |
-| UI (React + sigma.js) | M4.1/M4.2 | `ui/` | us / teammate (UI owner) |
+| UI (React + @xyflow/react) | M4.1/M4.2 | `ui/` | us / teammate (UI owner) |
 | OpenClaw operator layer | M4.3 | `integration/openclaw/` | us |
 
 "Us" here is the architecture/foundation portion this spec covers in full detail.
@@ -83,11 +83,12 @@ whackathon/
 │       ├── fixtures/
 │       │   └── bundle-laptop-a-fake/   hand-crafted bundle per CONTRACT.md
 │       └── test_*.py
-├── ui/                         React + sigma.js, built to static assets
+├── ui/                         React + @xyflow/react, built to static assets
 │   └── src/
-│       ├── api/                typed client for API.md + SSE hook
-│       ├── views/              RunsList, LiveRun, ReportView
-│       └── graph/              sigma renderer + delta patcher
+│       ├── api/                ConsoleApi client (mock/live/fixtures) - see ADR-0014
+│       ├── store/               zustand store, single console snapshot
+│       ├── panels/              Agent, Graph, Logs, Process
+│       └── components/          Header, MachineRail
 ├── integration/
 │   └── openclaw/               operator-layer skill: SKILL.md + brainctl (section 14)
 ├── transport-layer/
@@ -296,18 +297,21 @@ This is the move BM25 cannot make: lexical search finds the symptom chunk, the g
 
 ## 8. UI (M4.1 / M4.2)
 
-Stack: React + sigma.js (WebGL), Vite build, output copied into the FastAPI static mount.
-Contract: API.md; the UI is buildable against mocked JSON from minute 10.
+Stack: React + @xyflow/react (SVG/HTML graph canvas) + zustand + Tailwind, Vite build, output copied into the FastAPI static mount.
+Contract: nominally API.md, but the current `ui/` (fde-console, folded in per [ADR-0014](docs/decisions/ADR-0014-ui-swap-fde-console.md)) is built against a different `ConsoleApi` shape (`/api/snapshot`, `/api/chat`, `/api/context`, `/api/stream`) than the runs/report model `brain/api/routes.py` actually implements.
+Reconciling the two is unresolved - see [OPEN-QUESTIONS.md #8](docs/OPEN-QUESTIONS.md).
+The UI is buildable against its own fixtures (`src/api/fixtures.ts`) regardless of backend state.
 
-Views:
+Panels (single console screen, not a multi-view runs list, per the fde-console layout actually delivered):
 
-- RunsList: `GET /api/runs` + `GET /api/bundles`, trigger button posting to `/api/runs`.
-- LiveRun: three panes. Left: query/chunk trail rendered from `query`/`chunk`/`status` events ("Hypothesis: stale DB host -> searching -> retrieved backend.env (8.1)"). Center: sigma.js graph patched from `graph` deltas, no full relayout. Right (final turn only): streaming report text.
-- Node click: drawer showing the node's evidence chunks via `GET .../chunks/{cid}` - this is the "each node opens the actual file from the bundle" requirement.
-- ReportView: post-run, renders `report_markdown`, action plan table, and the full query trail replayed from the event log.
+- Header: run phase, elapsed/ETA, fixtures/live source toggle.
+- MachineRail: persistent left rail of known machines; click to filter every panel to one machine.
+- AgentPanel: chat-style trace of `TraceEvent`s (thought/query/retrieval/answer/user) plus a message box that streams the agent's reply token by token.
+- GraphPanel: @xyflow/react canvas of `Chunk` nodes and `GraphEdge`s, laid out with dagre; node click opens the evidence chunk - this is the "each node opens the actual file from the bundle" requirement.
+- LogsPanel: `LogEntry` list, filterable by machine/severity/source.
+- ProcessPanel: `AgentStep` list, one row per unit of agent work, scoped to a machine.
 
-Graph rendering policy: the reasoning layer plus every evidence node reachable from it within 1 hop is always shown; the rest of the evidence layer appears only through expansion clicks.
-This keeps the visible graph within sigma's comfortable range and the caps meaningful (see [ADR-0005](docs/decisions/ADR-0005-two-layer-graph.md)).
+Graph rendering policy (still binding, mechanism-agnostic): the reasoning layer plus every evidence node reachable from it within 1 hop is always shown; the rest of the evidence layer appears only through expansion clicks, keeping the visible graph within the caps meaningful (see [ADR-0005](docs/decisions/ADR-0005-two-layer-graph.md)).
 
 Client-side rules (binding): rAF-batched token flush; seq-number dedupe on SSE reconnect; thinking tokens collapsed by default.
 
