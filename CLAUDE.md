@@ -48,6 +48,7 @@ Brain: NVIDIA GB10, 120 GB unified memory, Ubuntu. Python 3.12.3, Node, Ollama w
 - Brain: `cd brain && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'`; tests: `.venv/bin/python -m pytest`; run: `.venv/bin/brain serve` (also `brain ingest <bundle>`, `brain pull <host>`, `brain graph <run_id>`).
 - UI: `cd ui && npm install && VITE_USE_MOCK=false npm run build` (output ui/dist, auto-served by brain, defaults to live); dev: `npm run dev` (defaults to fixtures; header toggle or `VITE_USE_MOCK=false` switches to the live Brain).
 - Linked interactive test: see `docs/RUNBOOK-LINKED-TEST.md` (single-machine variant and MacBook-over-ethernet variant).
+- Ethernet auto-intake: set `BRAIN_ETH_IFACE` + `BRAIN_ETH_USER` (optional `BRAIN_ETH_REMOTE_DIR`, `BRAIN_ETH_COLLECT_CMD`) before `brain serve`; plugging the cable then discovers the fe80 peer, optionally runs the remote collect command, pulls the newest bundle, and autorun does the rest. Once per cable session; demo reset re-arms it.
 - Scenario: `scenario/scripts/run-local.sh` starts mockdb + backend + portal locally; `ENV_FILE=.local/backend.env scenario/scripts/inject.sh` plants the fault; `revert.sh` heals it. `scripts/build.sh` builds `dist/`; `deploy/install.sh laptop-a|laptop-b` installs under systemd; `scripts/nuke.sh --target /opt/clinic` strips hints before any evaluation run.
 - Collector: `./collector/collector.sh -o ~/bundles --services "backend" [--push <brain-host>]`.
 - Operator: `integration/openclaw/brainctl health|bundles|usb|diagnose|watch|report`.

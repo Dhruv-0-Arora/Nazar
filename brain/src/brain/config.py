@@ -31,6 +31,11 @@ class Config:
     org_max_edges: int = 300
     # stage-3 LLM curator, disabled until built; agreed default: nemotron-cascade-2:30b
     curator_model: str = ""
+    # ethernet link watcher (cable twin of usb auto-scan); off until iface+user set
+    eth_iface: str = ""
+    eth_user: str = ""
+    eth_remote_dir: str = "~/bundles"
+    eth_collect_cmd: str = ""  # optional remote command run before each pull
 
     @property
     def inbox(self) -> Path:
@@ -78,4 +83,8 @@ def load_config() -> Config:
         org_max_edges_per_chunk=int(env.get("BRAIN_ORG_MAX_EDGES_PER_CHUNK", "3")),
         org_max_edges=int(env.get("BRAIN_ORG_MAX_EDGES", "300")),
         curator_model=env.get("BRAIN_CURATOR_MODEL", ""),
+        eth_iface=env.get("BRAIN_ETH_IFACE", ""),
+        eth_user=env.get("BRAIN_ETH_USER", ""),
+        eth_remote_dir=env.get("BRAIN_ETH_REMOTE_DIR", "~/bundles"),
+        eth_collect_cmd=env.get("BRAIN_ETH_COLLECT_CMD", ""),
     )

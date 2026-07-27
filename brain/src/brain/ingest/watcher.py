@@ -51,16 +51,21 @@ def list_bundles(cfg: Config, used: set[str] | None = None) -> list[dict]:
 
 
 async def watch_loop(cfg: Config, registry: RunRegistry) -> None:
-    known: set[str] = set()
-    pending: list[str] = []
-    last_new = 0.0
-
     # bundles already consumed by a previous session must not auto-rerun,
     # but stay 'ready' for manual triggers (idempotent restart, SPEC 11)
-    known |= registry.used_bundle_ids()
+    known: set[str] = set(registry.used_bundle_ids())
+    pending: list[str] = []
+    last_new = 0.0
+    epoch = registry.epoch
 
     while True:
         try:
+            if registry.epoch != epoch:
+                # a demo reset happened: forget everything so re-plugged sticks
+                # and re-deposited bundles auto-ingest and auto-run again
+                epoch = registry.epoch
+                known = set(registry.used_bundle_ids())
+                pending = []
             # usb auto-intake: a plugged-in client stick with unreceived bundles
             # gets received + normalized, then flows through the normal scan below
             if cfg.usb_watch:

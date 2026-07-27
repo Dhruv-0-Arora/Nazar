@@ -60,6 +60,7 @@ whackathon/
 │   │   │   ├── watcher.py      inbox polling + case grouping + usb auto-scan
 │   │   │   ├── bundle.py       CONTRACT.md validation, manifest parsing
 │   │   │   ├── usb.py          usb-stick intake: runs receive_bundle.py, normalizes (ADR-0012)
+│   │   │   ├── ethernet.py     cable link watcher: fe80 peer discovery + auto-pull
 │   │   │   └── chunker.py      deterministic structure-aware chunking
 │   │   ├── index/
 │   │   │   └── bm25.py         rank_bm25 wrapper, search(query, k)

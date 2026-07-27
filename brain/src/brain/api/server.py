@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ..config import Config, load_config
 from ..graph.organize import Organizer
+from ..ingest.ethernet import ethernet_loop
 from ..ingest.watcher import watch_loop
 from ..llm import OllamaEmbedder, OllamaLLM
 from ..runs import RunRegistry
@@ -41,13 +42,16 @@ def create_app(cfg: Config | None = None, llm=None, embedder=None) -> FastAPI:
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
-        task = asyncio.create_task(watch_loop(cfg, registry), name="inbox-watcher")
+        tasks = [asyncio.create_task(watch_loop(cfg, registry), name="inbox-watcher")]
+        if cfg.eth_iface and cfg.eth_user:
+            tasks.append(asyncio.create_task(ethernet_loop(cfg, registry), name="ethernet-watcher"))
         try:
             yield
         finally:
-            task.cancel()
+            for task in tasks:
+                task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
-                await task
+                await asyncio.gather(*tasks, return_exceptions=True)
 
     app = FastAPI(title="brain", lifespan=lifespan)
     app.state.cfg = cfg

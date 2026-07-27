@@ -20,6 +20,9 @@ class RunRegistry:
         self.organizer = organizer
         self._live: dict[str, RunContext] = {}
         self._sem = asyncio.Semaphore(max(1, cfg.parallel))
+        # bumped by reset(); the watcher re-seeds its memory when it changes,
+        # so a re-plugged stick auto-ingests and auto-diagnoses again
+        self.epoch = 0
 
     # ---------- lifecycle ----------
 
@@ -53,6 +56,43 @@ class RunRegistry:
 
     def launch(self, ctx: RunContext) -> asyncio.Task:
         return asyncio.create_task(self.start(ctx), name=f"run:{ctx.run_id}")
+
+    def reset(self, bundles: bool = True, runs: bool = True) -> dict:
+        """Demo reset: clear inbox bundles, rejected leftovers, staging, and
+        finished runs. Runs that are queued/running are protected, not killed."""
+        removed_bundles: list[str] = []
+        removed_runs: list[str] = []
+        protected: list[str] = []
+
+        if runs:
+            for run_id, ctx in list(self._live.items()):
+                if ctx.status in ("queued", "running"):
+                    protected.append(run_id)
+                else:
+                    self._live.pop(run_id, None)
+            for d in self.cfg.runs.glob("run-*"):
+                if d.name in protected or not d.is_dir():
+                    continue
+                shutil.rmtree(d, ignore_errors=True)
+                removed_runs.append(d.name)
+
+        if bundles:
+            active = {bid for rid in protected for bid in self._live[rid].bundle_ids}
+            for d in self.cfg.inbox.glob("bundle-*"):
+                if d.is_dir() and d.name not in active:
+                    shutil.rmtree(d, ignore_errors=True)
+                    removed_bundles.append(d.name)
+            for p in self.cfg.rejected.glob("bundle-*"):
+                shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
+            for p in self.cfg.staging.iterdir() if self.cfg.staging.is_dir() else []:
+                shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
+
+        self.epoch += 1
+        return {
+            "removed_bundles": sorted(removed_bundles),
+            "removed_runs": sorted(removed_runs),
+            "protected_running": sorted(protected),
+        }
 
     # ---------- queries ----------
 

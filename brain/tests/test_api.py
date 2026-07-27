@@ -83,6 +83,30 @@ def test_run_default_bundle_selection_and_errors(cfg):
         assert sorted(detail["bundle_ids"]) == sorted([BUNDLE_A.name, BUNDLE_B.name])
 
 
+def test_reset_clears_state_and_bumps_epoch(cfg):
+    seed_inbox(cfg)
+    app = create_app(cfg, llm=FakeLLM(scripted_diagnosis()))
+    with TestClient(app) as client:
+        run_id = client.post("/api/runs", json={"bundle_ids": [BUNDLE_A.name]}).json()["run_id"]
+        wait_done(client, run_id)
+
+        registry = app.state.registry
+        epoch_before = registry.epoch
+        result = client.post("/api/reset", json={}).json()
+
+        assert BUNDLE_A.name in result["removed_bundles"]
+        assert run_id in result["removed_runs"]
+        assert result["protected_running"] == []
+        assert registry.epoch == epoch_before + 1
+        assert client.get("/api/bundles").json() == []
+        assert client.get("/api/runs").json() == []
+        assert registry.used_bundle_ids() == set()  # watcher re-seed sees a clean slate
+
+        # re-depositing the same bundle id after reset works (the demo loop)
+        seed_inbox(cfg)
+        assert client.post("/api/runs", json={"bundle_ids": [BUNDLE_A.name]}).status_code == 202
+
+
 def test_rejected_bundle_listing(cfg):
     bad = cfg.inbox / BUNDLE_A.name
     shutil.copytree(BUNDLE_A, bad)

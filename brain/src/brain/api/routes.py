@@ -27,6 +27,11 @@ class UsbReceiveRequest(BaseModel):
     source: str | None = None  # None = auto-discover mounted client sticks
 
 
+class ResetRequest(BaseModel):
+    bundles: bool = True
+    runs: bool = True
+
+
 def create_router(cfg: Config, registry: RunRegistry, llm) -> APIRouter:
     router = APIRouter(prefix="/api")
 
@@ -53,6 +58,13 @@ def create_router(cfg: Config, registry: RunRegistry, llm) -> APIRouter:
             raise HTTPException(status_code=404, detail=str(e)) from e
         registry.launch(ctx)
         return {"run_id": ctx.run_id, "full_context": ctx.full_context}
+
+    @router.post("/reset")
+    async def reset(body: ResetRequest | None = None) -> dict:
+        """Demo reset: clear bundles and finished runs; running runs survive.
+        The watcher forgets its history, so the next deposit auto-runs again."""
+        body = body or ResetRequest()
+        return await asyncio.to_thread(registry.reset, body.bundles, body.runs)
 
     @router.post("/usb/receive")
     async def usb_receive(body: UsbReceiveRequest) -> dict:

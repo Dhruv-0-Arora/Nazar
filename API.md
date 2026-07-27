@@ -19,6 +19,7 @@ All API routes live under `/api/` to avoid colliding with UI routes.
 | GET | `/api/bundles` | list bundles known to the inbox |
 | POST | `/api/runs` | start a diagnosis run on a set of bundles |
 | POST | `/api/usb/receive` | receive + normalize bundles from a client USB stick |
+| POST | `/api/reset` | demo reset: clear bundles + finished runs (running runs survive; watcher forgets, so re-deposits auto-run again). Body `{"bundles": true, "runs": true}` optional; returns `{removed_bundles, removed_runs, protected_running}` |
 | GET | `/api/runs` | list runs with status |
 | GET | `/api/runs/{run_id}` | full run detail incl. report when done |
 | GET | `/api/runs/{run_id}/stream` | SSE live event stream |

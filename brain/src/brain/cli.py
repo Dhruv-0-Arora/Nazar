@@ -81,10 +81,13 @@ def _ingest(cfg, src: Path) -> int:
     return 0
 
 
-def _pull(cfg, host: str, remote_dir: str) -> int:
-    """scp the newest bundle from the client's output dir (ADR-0003)."""
+def _pull(cfg, host: str, remote_dir: str, scp_host: str | None = None) -> int:
+    """scp the newest bundle from the client's output dir (ADR-0003).
+    `scp_host` overrides the scp target spec: raw IPv6 link-local literals must
+    be bracketed for scp (user@[fe80::x%iface]) while ssh takes them bare."""
+    scp_host = scp_host or host
     find = subprocess.run(
-        ["ssh", host, f"ls -1d {remote_dir}/bundle-* 2>/dev/null | sort | tail -1"],
+        ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host, f"ls -1d {remote_dir}/bundle-* 2>/dev/null | sort | tail -1"],
         capture_output=True,
         text=True,
         timeout=30,
@@ -95,22 +98,23 @@ def _pull(cfg, host: str, remote_dir: str) -> int:
         return 1
     name = remote_bundle.rsplit("/", 1)[-1]
     cfg.ensure_dirs()
+    final = cfg.inbox / name
+    if final.exists():
+        # idempotent: the newest remote bundle is already here, nothing to do
+        print(f"{host}: bundle {name} already in inbox")
+        return 0
     staged = cfg.staging / name
     if staged.exists():
         shutil.rmtree(staged)
     # manifest first: it tells the Brain what it is looking at (SPEC section 5)
     manifest_peek = cfg.staging / f"{name}.manifest.json"
-    subprocess.run(["scp", "-q", f"{host}:{remote_bundle}/manifest.json", str(manifest_peek)], check=False, timeout=30)
+    subprocess.run(["scp", "-q", f"{scp_host}:{remote_bundle}/manifest.json", str(manifest_peek)], check=False, timeout=30)
     if manifest_peek.is_file():
         print(f"{host}: manifest fetched ({manifest_peek.stat().st_size} bytes), pulling full bundle")
         manifest_peek.unlink()
-    copy = subprocess.run(["scp", "-rq", f"{host}:{remote_bundle}", str(cfg.staging)], timeout=300)
+    copy = subprocess.run(["scp", "-rq", f"{scp_host}:{remote_bundle}", str(cfg.staging)], timeout=300)
     if copy.returncode != 0:
         print(f"{host}: scp failed", file=sys.stderr)
-        return 1
-    final = cfg.inbox / name
-    if final.exists():
-        print(f"{host}: bundle {name} already in inbox", file=sys.stderr)
         return 1
     staged.rename(final)
     print(f"pulled {name} from {host}")

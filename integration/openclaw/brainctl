@@ -17,6 +17,8 @@ usage: brainctl <command> [args]
            [-q "question"] [--full | --no-full]   full-context injection
                                 (default: auto - on for usb-received bundles)
   runs                          list runs with status
+  reset                         demo reset: clear bundles + finished runs
+                                (running runs survive; watcher forgets history)
   watch <run_id>                follow the live event stream, print the trail
   report <run_id>               print the finished report markdown
 EOF
@@ -39,6 +41,9 @@ case "$cmd" in
     ;;
   runs)
     api runs | pretty
+    ;;
+  reset)
+    api reset -X POST -H 'Content-Type: application/json' -d '{}' | pretty
     ;;
   usb)
     if [ $# -ge 1 ]; then
