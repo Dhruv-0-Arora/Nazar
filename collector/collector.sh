@@ -13,7 +13,8 @@
 # machine_id is the lowercase hostname sanitized to [a-z0-9-].
 #
 # Config discovery per service <name> (documented search path):
-#   1. /etc/myapp/<name>.env      copied verbatim if it exists
+#   1. env-file candidates, first match wins: /etc/myapp/<name>.env (legacy),
+#      /etc/clinic/<name>.env, /etc/clinic/<short-name>.env (namespaced units)
 #   2. /etc/<name>/*              non-recursive; regular, readable, text files only
 # Copies land under services/<name>/config/<original-filename>.
 #

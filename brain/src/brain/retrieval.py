@@ -16,7 +16,6 @@ from .ingest.chunker import Chunk
 class Expansion:
     subgraph_text: str
     chunks: list[Chunk] = field(default_factory=list)
-    node_ids: list[str] = field(default_factory=list)
 
 
 class Retriever:
@@ -50,19 +49,17 @@ class Retriever:
         return Expansion(
             subgraph_text=self.render_subgraph(subgraph),
             chunks=extra,
-            node_ids=sorted(subgraph),
         )
 
     def render_subgraph(self, node_ids: set[str]) -> str:
         """Compact text rendering, e.g.
         service:laptop-a/backend -talks_to-> host:db.internal [DANGLING: no machine matches]"""
         lines = []
-        for edge in self.graph.edges_within(node_ids):
+        edges = self.graph.edges_within(node_ids)
+        for edge in edges:
             suffix = " [DANGLING: no machine matches]" if edge.attrs.get("dangling") else ""
             lines.append(f"{edge.src} -{edge.rel}-> {edge.dst}{suffix}")
-        isolated = node_ids - {e.src for e in self.graph.edges_within(node_ids)} - {
-            e.dst for e in self.graph.edges_within(node_ids)
-        }
+        isolated = node_ids - {e.src for e in edges} - {e.dst for e in edges}
         for nid in sorted(isolated):
             lines.append(nid)
         return "\n".join(lines) if lines else "(empty subgraph)"

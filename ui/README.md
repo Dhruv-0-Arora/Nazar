@@ -1,7 +1,7 @@
 # Nazar
 
-React frontend for the Brain. Runs entirely on fixtures right now; flips to the live
-Brain by changing one file.
+React frontend for the Brain. Runs against built-in fixtures by default; flips to the
+live Brain with one env var.
 
 ```bash
 npm install
@@ -14,7 +14,7 @@ npm run build      # -> dist/, static, serve from anywhere
 ```
 src/
   api/
-    types.ts       # mirror of CONTRACT.md — the seam
+    types.ts       # mirror of API.md's ConsoleApi surface — the seam
     fixtures.ts    # dummy data (stale DB_HOST scenario)
     mock.ts        # ConsoleApi backed by fixtures, streams token by token
     live.ts        # ConsoleApi backed by the Brain over fetch + SSE
@@ -22,20 +22,22 @@ src/
   store/useStore.ts
   panels/          # Agent, Graph, Logs, Process
   components/      # Header, MachineRail
-  lib/             # formatting, dagre layout
+  lib/             # formatting, force-directed layout
 ```
 
 ## Wiring the Brain
 
-Nothing outside `src/api/` knows whether data is real. To go live:
+Nothing outside `src/api/` knows whether data is real. The Brain already serves the
+four `ConsoleApi` routes from `types.ts` (adapter in `brain/src/brain/api/console.py`):
 
-1. Make the Brain serve four routes matching `ConsoleApi` in `types.ts`:
-   - `GET /api/snapshot` → `ConsoleSnapshot`
-   - `POST /api/chat` → newline-delimited `TraceEvent` JSON, streamed
-   - `PUT /api/context` → `{ markdown }`
-   - `GET /api/stream` → SSE, each message a full `ConsoleSnapshot`
-2. Click **fixtures** in the header to toggle to **brain**, or start with
-   `VITE_USE_MOCK=false npm run dev`.
+- `GET /api/snapshot` → `ConsoleSnapshot`
+- `POST /api/chat` → newline-delimited `TraceEvent` JSON, streamed
+- `PUT /api/context` → `{ markdown }`
+- `GET /api/stream` → newline-delimited full `ConsoleSnapshot`s, ~1/s
+
+To go live, click **fixtures** in the header to toggle to **brain**, or start with
+`VITE_USE_MOCK=false npm run dev`. The mock is the default even for `npm run build` —
+build with `VITE_USE_MOCK=false` when the bundle should talk to a real Brain.
 
 `vite.config.ts` proxies `/api` to `127.0.0.1:8000`, so there is no CORS to debug.
 Point `VITE_BRAIN_URL` elsewhere if the Brain is on another host.

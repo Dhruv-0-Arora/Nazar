@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "brain"
 version = "0.1.0"
 description = "Offline diagnostic Brain: bundle ingest, BM25 + entity graph retrieval, agent loop, API"
+license = {text = "PolyForm-Noncommercial-1.0.0"}
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi>=0.110",

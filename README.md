@@ -111,7 +111,7 @@ Diagnosing something is only impressive if the answer wasn't obvious, so we buil
 Three services across two laptops: a backend, a mock database, and a web portal.
 All the patient data is fabricated. No real person is in there.
 
-It ships with six different ways to break it, a difficulty ladder from "single file, single machine" up to faults that need cross-machine reasoning to catch.
+It ships with six different ways to break it - four scripted, two staged by hand on the host - a difficulty ladder from "single file, single machine" up to faults that need cross-machine reasoning to catch.
 
 Alongside it sits a knowledge base of 13 hand-written documents, and here's the nasty bit: they're **split across the two laptops so that the document explaining the fault lives on the opposite machine from the fault itself.**
 You physically cannot solve it from one machine's evidence.
@@ -135,15 +135,17 @@ One of those criteria is inverted: blaming the firewall is an automatic zero.
 You'll need a Linux box with Ollama and a big model pulled, but the pieces run independently.
 
 ```bash
-# The Brain
+# The Brain (from the repo root)
 cd brain
 python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m pytest          # test suite
 .venv/bin/brain serve               # starts on :8000
+cd ..
 
 # The UI (builds into the Brain's static mount)
 cd ui
 npm install && VITE_USE_MOCK=false npm run build
+cd ..
 
 # The broken clinic, all three services locally
 cd scenario
@@ -151,7 +153,7 @@ npm install && bash scripts/run-local.sh
 
 # Break it, then collect the evidence
 ENV_FILE=.local/backend.env bash scripts/inject.sh
-./collector/collector.sh -o ~/bundles --services "clinic-backend clinic-portal"
+../collector/collector.sh -o ~/bundles --services "clinic-backend clinic-portal"
 
 # Heal it again
 ENV_FILE=.local/backend.env bash scripts/revert.sh
@@ -183,6 +185,12 @@ eval/          the grading harness
 - `API.md` - the HTTP and streaming schemas between the Brain and the UI.
 - `AIRGAP-SSH.md` - how to talk to a machine over nothing but a cable.
 - `scenario/BREAKAGE.md` - the fault catalogue and the difficulty ladder.
+
+## License
+
+[PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0) - see `LICENSE`.
+Personal, research, and noncommercial use is fine; any commercial use requires
+a separate written agreement with the authors.
 
 ---
 

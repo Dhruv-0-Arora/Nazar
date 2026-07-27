@@ -4,7 +4,7 @@ This is the interface between the Brain service (M3/M4, Python/FastAPI) and the 
 The UI builds against mocked JSON matching these schemas and never talks to Ollama directly.
 Any change requires a version bump and sign-off from both owners.
 
-Note: the `ui/` in the repo (fde-console, [ADR-0014](docs/decisions/ADR-0014-ui-swap-fde-console.md)) speaks the ConsoleApi surface (`/api/snapshot`, `/api/chat`, `/api/context`, `/api/stream`), served by the Brain as an adapter over the runs model below - see [ADR-0015](docs/decisions/ADR-0015-console-adapter.md).
+Note: the `ui/` in the repo (fde-console, ADR-0014) speaks the ConsoleApi surface (`/api/snapshot`, `/api/chat`, `/api/context`, `/api/stream`), served by the Brain as an adapter over the runs model below - see ADR-0015.
 The runs API in this document remains the canonical contract; the console surface's shapes are defined by `ui/src/api/types.ts` and implemented in `brain/src/brain/api/console.py`.
 
 Base URL: `http://<brain-host>:8000`.
@@ -26,6 +26,10 @@ All API routes live under `/api/` to avoid colliding with UI routes.
 | GET | `/api/runs/{run_id}/graph` | current graph snapshot (nodes + edges) |
 | GET | `/api/runs/{run_id}/organization` | organizer overlay: clusters + relates edges (ADR-0016) |
 | GET | `/api/runs/{run_id}/chunks/{chunk_id}` | raw chunk text + metadata |
+| GET | `/api/snapshot` | ConsoleApi: full console snapshot (ADR-0015 adapter) |
+| POST | `/api/chat` | ConsoleApi: operator message, NDJSON TraceEvent stream |
+| PUT | `/api/context` | ConsoleApi: set machine filter context |
+| GET | `/api/stream` | ConsoleApi: 1 Hz NDJSON snapshot stream |
 
 ### GET /api/healthz
 
@@ -44,12 +48,13 @@ All API routes live under `/api/` to avoid colliding with UI routes.
     "machine_id": "laptop-a",
     "created_at": "2026-07-26T18:30:00Z",
     "services": ["backend"],
-    "state": "ready"
+    "state": "ready",
+    "in_run": false
   }
 ]
 ```
 
-`state`: `ready` | `ingesting` | `rejected`.
+`state`: `ready` | `ingesting` | `rejected`. `in_run` is true once the bundle belongs to a run.
 For `rejected` bundles, `machine_id`, `created_at`, and `services` are `null` when the manifest was missing or unparseable, and an additional `reason` field carries the contents of `reject-reason.txt`.
 
 ### POST /api/runs
@@ -64,9 +69,9 @@ Request:
 ```
 
 - `bundle_ids` optional. Default: every `ready` bundle not yet part of a run.
-  A run always operates on a case, i.e. a set of bundles indexed together (see [ADR-0006](docs/decisions/ADR-0006-case-based-runs.md)).
+  A run always operates on a case, i.e. a set of bundles indexed together (see ADR-0006).
 - `question` optional. Default prompt asks for general diagnosis of the collected machines.
-- `full_context` optional tri-state (see [ADR-0012](docs/decisions/ADR-0012-usb-intake-full-context.md)): omitted/`null` = auto (on when any bundle arrived via USB, detected from its `receipt.json`); `true`/`false` force it. When on, the entire case content is injected into the agent's first message, chunk-ID delimited.
+- `full_context` optional tri-state (see ADR-0012): omitted/`null` = auto (on when any bundle arrived via USB, detected from its `receipt.json`); `true`/`false` force it. When on, the entire case content is injected into the agent's first message, chunk-ID delimited.
 
 Response: `202` with `{"run_id": "run-20260726T184501Z-a1b2", "full_context": true}`.
 
@@ -113,8 +118,7 @@ Everything from the list entry, plus when `status` is `done`:
   "report_markdown": "# Diagnosis...",
   "metrics": {
     "turns": 5,
-    "queries_issued": 9,
-    "chunks_retrieved": 31,
+    "per_turn": [{"turn": 1, "eval_count": 312, "eval_duration_s": 2.85, "prompt_eval_count": 5120}],
     "tokens_generated": 1450,
     "elapsed_s": 19.4
   }
@@ -138,7 +142,8 @@ When `failed`: an `error` string instead of `report`.
 Event types and payloads:
 
 ```
-event: status   data: {"turn": 3, "state": "searching" | "expanding" | "thinking" | "reporting"}
+event: status   data: {"turn": 3, "state": "ingesting" | "thinking" | "refining" | "reporting"
+                                        | "full-context: <summary>" | "warning: <text>"}
 event: query    data: {"turn": 2, "q": "backend.env DB host", "k": 5}
 event: chunk    data: {"turn": 2, "cid": "laptop-a:services/backend/config/backend.env:L1-L12",
                        "file": "services/backend/config/backend.env", "score": 8.1,
@@ -151,7 +156,7 @@ event: organize data: {"phase": "ingest" | "turn" | "conclude" | "coalesced", "c
                 (or {"phase": ..., "error": "..."} when the embedder is unavailable; see ADR-0016)
 ```
 
-UI guidance (binding, from PLAN M4.2):
+UI guidance (binding):
 
 - Lead with the query/chunk trail; only the final turn streams `token` events into a visible report pane.
 - Flush token buffers on `requestAnimationFrame`, not per token.
@@ -183,13 +188,13 @@ Produced by the agent's final turn, validated by the Brain before the run is mar
 
 - `confidence`: `high` | `medium` | `low`.
 - Every claim must cite a `chunk_id` that exists in the chunk store; the Brain validates and strips dangling citations.
-- `proposed_fix_script` is advisory output only. The Brain never executes it (see [ADR-0010](docs/decisions/ADR-0010-fix-scripts.md)).
+- `proposed_fix_script` is advisory output only. The Brain never executes it (see ADR-0010).
 - `action_plan` is the future autofix API surface; keep it strictly structured.
 
 ## 4. Graph schemas
 
 Shared by `GET /api/runs/{run_id}/graph` (snapshot), `event: graph` (deltas), and `runs/<run_id>/graph.json` (persisted artifact).
-One store, two layers (see [ADR-0005](docs/decisions/ADR-0005-two-layer-graph.md)).
+One store, two layers (see ADR-0005).
 
 Node:
 
@@ -230,12 +235,12 @@ Graph delta ops (the `event: graph` payloads):
 {"op": "set_status", "id": "hyp:2", "status": "ruled_out"}
 ```
 
-Caps, enforced by the graph store, not the prompt (PLAN M4.1):
+Caps, enforced by the graph store, not the prompt:
 
 - Reasoning layer: max 8 hypothesis nodes per run, max 5 finding nodes per hypothesis (so at most 48 reasoning nodes).
 - A finding's `add_node` delta must carry `"parent": "hyp:N"` and `"stance": "supports" | "contradicts"` as fields INSIDE the `node` object; the store creates the finding and the edge `finding -<stance>-> hypothesis` atomically, which is what makes the per-hypothesis cap enforceable.
 - On overflow (or an op referencing an unknown ID): reject the op and return an error to the agent loop, which tells the model in the next turn.
-- PLAN's 150-node figure survives as the UI's rendered-view budget (reasoning layer + 1-hop evidence halo); when exceeded, the UI trims halo nodes on `ruled_out` branches first (see ADR-0005).
+- A 150-node rendered-view budget (reasoning layer + 1-hop evidence halo, trimming `ruled_out` halo nodes first) is the stated UI policy (ADR-0005); the shipped console does not yet enforce it.
 - The evidence layer itself is uncapped; the UI renders it as on-demand subgraphs, never the whole layer (see SPEC.md section 8).
 
 ### GET /api/runs/{run_id}/graph

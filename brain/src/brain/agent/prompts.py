@@ -1,5 +1,5 @@
 """Prompt templates (SPEC section 7). STATIC system prompt: nothing variable
-may appear here or the Ollama prefix cache breaks silently (PLAN M3.5)."""
+may appear here or the Ollama prefix cache breaks silently."""
 
 SYSTEM = """You are the Brain, an offline diagnostic engine. You are given evidence bundles collected from broken machines: system state, network state, service configs, logs, and a directory of company docs. Your job is to find the root cause and produce an action plan, citing evidence for every claim.
 

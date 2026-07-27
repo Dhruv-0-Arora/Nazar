@@ -5,7 +5,7 @@ Run this after plugging in the USB stick (or after pull.sh/push.sh staged a
 bundle). It discovers bundle-* directories at the given source, verifies each
 one against its manifest.json (existence, byte size, sha256), copies verified
 bundles into the Brain inbox, writes a receipt.json, and prints a summary of
-what was received — exactly what the future indexer (M3) will consume.
+what was received — exactly what the Brain's indexer consumes.
 
 This script deliberately contains NO indexing/chunking logic. Transport ends
 when a verified bundle sits in the inbox.

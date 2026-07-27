@@ -2,16 +2,13 @@
 
 from dataclasses import dataclass, field
 
-EVIDENCE_TYPES = {"machine", "service", "file", "host", "ip", "port", "env_var", "error", "ticket"}
 REASONING_TYPES = {"hypothesis", "finding"}
-EVIDENCE_RELS = {"located_on", "has_config", "mentions", "listens_on", "talks_to"}
 REASONING_RELS = {"about", "supports", "contradicts", "retrieved_by"}
 STATUSES = {"open", "confirmed", "ruled_out"}
 
 MAX_HYPOTHESES = 8
 MAX_FINDINGS_PER_HYPOTHESIS = 5
 LABEL_MAX = 80
-RENDER_BUDGET = 150  # UI rendered-view budget, not a store cap
 
 
 @dataclass

@@ -91,8 +91,8 @@ class Organizer:
 
         relates = self._relates_edges(ids, vectors, chunks)
         projection = self._projection_graph(ids, chunks, relates)
-        clusters, cluster_of = self._clusters(projection, ids)
-        adopted = self._adopt_orphans(ids, vectors, projection, clusters, cluster_of)
+        clusters = self._clusters(projection)
+        adopted = self._adopt_orphans(ids, vectors, projection, clusters)
         relates.extend(adopted)
 
         return {
@@ -170,21 +170,17 @@ class Organizer:
             g.add_edge(e["source"], e["target"], weight=e["weight"])
         return g
 
-    def _clusters(self, projection: nx.Graph, ids: list[str]) -> tuple[list[dict], dict[str, str]]:
+    def _clusters(self, projection: nx.Graph) -> list[dict]:
         communities = nx.algorithms.community.greedy_modularity_communities(projection, weight="weight")
         ordered = sorted((sorted(c) for c in communities), key=lambda m: (-len(m), m[0]))
         clusters = []
-        cluster_of: dict[str, str] = {}
         for i, members in enumerate(ordered, start=1):
             if len(members) < 2:
                 continue  # singletons are orphans, handled below
-            cid = f"c{i}"
-            clusters.append({"id": cid, "label": None, "members": members})
-            for m in members:
-                cluster_of[m] = cid
-        return clusters, cluster_of
+            clusters.append({"id": f"c{i}", "label": None, "members": members})
+        return clusters
 
-    def _adopt_orphans(self, ids, vectors, projection: nx.Graph, clusters, cluster_of) -> list[dict]:
+    def _adopt_orphans(self, ids, vectors, projection: nx.Graph, clusters) -> list[dict]:
         """Attach degree-0 chunks to the cluster with the nearest centroid."""
         if not clusters:
             return []
@@ -206,6 +202,5 @@ class Organizer:
             member_scores = [(m, float(vec @ vectors[index_of[m]])) for m in cluster["members"]]
             nearest, _ = max(member_scores, key=lambda p: p[1])
             cluster["members"].append(chunk_id)
-            cluster_of[chunk_id] = best_cluster
             adopted.append({"source": chunk_id, "target": nearest, "kind": "relates", "weight": round(max(best_score, floor), 3)})
         return adopted

@@ -17,7 +17,7 @@ class Config:
     parallel: int
     autorun: bool
     llm_timeout_s: float
-    think_final: bool  # thinking mode on the conclude turn (OPEN-QUESTIONS #4)
+    think_final: bool  # thinking mode on the conclude turn
     usb_watch: bool = True  # auto-scan for plugged-in client sticks (ADR-0012)
     usb_sources: tuple[str, ...] = ()  # extra outbox paths beyond mount globs
     full_ctx_chars: int = 300_000  # budget for full-context injection
@@ -29,8 +29,6 @@ class Config:
     org_sim_threshold: float = 0.72
     org_max_edges_per_chunk: int = 3
     org_max_edges: int = 300
-    # stage-3 LLM curator, disabled until built; agreed default: nemotron-cascade-2:30b
-    curator_model: str = ""
     # ethernet link watcher (cable twin of usb auto-scan); off until iface+user set
     eth_iface: str = ""
     eth_user: str = ""
@@ -82,7 +80,6 @@ def load_config() -> Config:
         org_sim_threshold=float(env.get("BRAIN_ORG_SIM_THRESHOLD", "0.72")),
         org_max_edges_per_chunk=int(env.get("BRAIN_ORG_MAX_EDGES_PER_CHUNK", "3")),
         org_max_edges=int(env.get("BRAIN_ORG_MAX_EDGES", "300")),
-        curator_model=env.get("BRAIN_CURATOR_MODEL", ""),
         eth_iface=env.get("BRAIN_ETH_IFACE", ""),
         eth_user=env.get("BRAIN_ETH_USER", ""),
         eth_remote_dir=env.get("BRAIN_ETH_REMOTE_DIR", "~/bundles"),

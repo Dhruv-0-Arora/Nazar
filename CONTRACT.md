@@ -6,7 +6,7 @@ Any change requires bumping `contract_version` and sign-off from both owners.
 
 The same contract applies to every transport mode (SSH pull, scp push, USB copy).
 Transport is swappable precisely because this contract fixes the interface.
-See [ADR-0003](docs/decisions/ADR-0003-transport-modes.md).
+See ADR-0003.
 
 ## 1. Bundle naming
 
@@ -99,11 +99,11 @@ Required commands in `network.txt`: `ip addr`, `ip route`, `ss -tlnp`, `cat /etc
 
 ## 5. Deposit protocol (transport -> inbox)
 
-The Brain's inbox is `$BRAIN_INBOX` (default `~/brain/inbox/`).
+The Brain's inbox is `$BRAIN_HOME/inbox/` (default `~/brain/inbox/`; there is no separate inbox env var).
 Deposits must be atomic so the watcher never sees a half-copied bundle:
 
-1. Copy the bundle into `$BRAIN_INBOX/.staging/bundle-<...>/`.
-2. When the copy is complete, `mv` it to `$BRAIN_INBOX/bundle-<...>/` (atomic rename, same filesystem).
+1. Copy the bundle into `$BRAIN_HOME/inbox/.staging/bundle-<...>/`.
+2. When the copy is complete, `mv` it to `$BRAIN_HOME/inbox/bundle-<...>/` (atomic rename, same filesystem).
 
 The watcher only considers directories at the inbox root whose names start with `bundle-`.
 It ignores `.staging/` and any dotfile.
@@ -111,9 +111,9 @@ It ignores `.staging/` and any dotfile.
 - SSH pull mode: `collector.sh` writes the bundle to `~/bundles/` on the client (override with `-o <dir>`); the operator runs `brain pull <host>` on the Brain, which fetches the newest `bundle-*` from that directory (manifest first, then the whole bundle) and performs both steps.
 - scp push mode: the client scp's into `.staging/` and then runs `ssh brain mv ...` (the last two lines of `collector.sh`).
 - USB mode: the operator runs `brain ingest /media/usb/bundle-<...>` on the Brain, which performs the two steps.
-- USB client-stick variant: bundles produced by `transport-layer/usb-transport/` speak a manifest dialect that does NOT conform to this contract; they enter exclusively through the Brain's USB intake (`brainctl usb`, `POST /api/usb/receive`, or the watcher's auto-scan), which runs the stick's `receive_bundle.py` verifier and then normalizes each bundle to this contract before the atomic deposit (see [ADR-0012](docs/decisions/ADR-0012-usb-intake-full-context.md)). The original manifest is preserved inside the bundle as `manifest.usb.json`.
+- USB client-stick variant: bundles produced by `transport-layer/usb-transport/` speak a manifest dialect that does NOT conform to this contract; they enter exclusively through the Brain's USB intake (`brainctl usb`, `POST /api/usb/receive`, or the watcher's auto-scan), which runs the stick's `receive_bundle.py` verifier and then normalizes each bundle to this contract before the atomic deposit (see ADR-0012). The original manifest is preserved inside the bundle as `manifest.usb.json`.
 
-A bundle that fails validation (missing manifest, bad `contract_version`, oversize) is moved to `$BRAIN_INBOX/rejected/<bundle_id>/` with a `reject-reason.txt` beside it.
+A bundle that fails validation (missing manifest, bad `contract_version`, oversize) is moved to `$BRAIN_HOME/inbox/rejected/<bundle_id>/` with a `reject-reason.txt` beside it.
 It is never silently dropped.
 
 ## 6. Chunk ID grammar (downstream, fixed here because reports cite it)

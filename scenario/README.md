@@ -30,7 +30,6 @@ No real person, MRN, or clinical event is represented.
 
 ## This replaced an earlier scenario package
 
-See ADR-0012.
 The previous package used an Acme inventory domain on ports 3001/8080 with paths under `/opt/myapp`.
 Its history is intact in git if any of it is wanted back.
 
@@ -39,8 +38,9 @@ Two things changed that readers of the older docs should know:
 - **Ports moved.** Backend is 8080 (was 3001) and the portal is 3000 (was 8080).
 - **Paths moved.** `/opt/clinic` and `/etc/clinic` (were `/opt/myapp` and `/etc/myapp`).
 
-`SPEC.md` and `collector/README.md` contain examples using the old values.
-Those are illustrative rather than load-bearing, but they are now stale.
+`collector/collector.sh` still searches the legacy `/etc/myapp/` and
+`/var/log/myapp/` paths alongside the clinic ones, so old deployments keep
+collecting.
 
 ## Why a clinic
 
@@ -51,7 +51,9 @@ building, which is what a judge asked about directly.
 
 ## Zero dependencies, on purpose
 
-Node stdlib only. No `package.json` deps, no build step, no webfonts, no CDN.
+Node stdlib only at runtime. No `package.json` runtime deps, no webfonts, no CDN
+(the only dev dependency is `esbuild`, used by `scripts/build.sh` on the build
+host, never on a clinic machine).
 The scenario premise is a dead network — anything that needs `npm install` or a
 font request on-site breaks the story, and a hanging font request would quietly
 prove the box still has internet.
@@ -191,9 +193,3 @@ The status bar distinguishes **portal can't reach backend** (`EPORTAL`) from
 **backend can't reach database** (`ENOTFOUND`), which are different outages and
 must not look the same on screen.
 
-## Still to build (M0 remainder)
-
-- systemd units for all three services
-- `/opt/company-docs/` corpus — near-miss ticket, genuinely useful runbook, noise
-- `ground_truth.md` — never ships to the client
-- `placement.json` — which laptop gets which bug and which docs

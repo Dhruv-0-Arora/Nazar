@@ -52,7 +52,7 @@ export const logs: LogEntry[] = [
     service: "backend",
     message:
       "FATAL getaddrinfo ENOTFOUND db-prod-01.internal — connection pool exhausted after 5 retries",
-    summary: "Backend cannot resolve its database host. Process exits.",
+    summary: "Backend cannot resolve its database host. Requests fail while the service stays up.",
   },
   {
     id: "l2",

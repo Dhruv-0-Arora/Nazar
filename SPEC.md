@@ -1,9 +1,8 @@
 # SPEC.md - Technical Specification (Architecture / Foundation)
 
-Status: draft for team review.
+Status: post-hackathon snapshot.
 This document is the source of truth for the system architecture.
-PLAN.md is the raw brainstorm it was distilled from; where they disagree, this file wins once the open questions in [docs/OPEN-QUESTIONS.md](docs/OPEN-QUESTIONS.md) are settled.
-Decisions and their rationale live in [docs/decisions/](docs/decisions/).
+Decision rationale is tagged inline as ADR-00NN; the numbered ADR files were not carried into this repo, so the tags are rationale markers, not links.
 
 ## 1. What we are building
 
@@ -33,20 +32,19 @@ The scenario package is specified only at its interfaces (what the collector mus
 
 ```
 whackathon/
-├── PLAN.md                     raw brainstorm (historical, do not build against)
+├── README.md                   project overview
 ├── SPEC.md                     this file - architecture source of truth
 ├── CONTRACT.md                 seam 1: collector <-> Brain bundle contract
 ├── API.md                      seam 2: Brain <-> UI HTTP/SSE contract
-├── CLAUDE.md                   repo navigation for agents and humans
-├── docs/
-│   ├── decisions/              ADRs (numbered, immutable once accepted)
-│   └── OPEN-QUESTIONS.md       unresolved items needing a human decision
+├── AIRGAP-SSH.md               talking to a machine over nothing but a cable
 ├── scenario/                   M0 - the broken system under test
-│   ├── backend/                Node service that crashes (the patient)
-│   ├── frontend/               client app on the other laptop (the symptom)
+│   ├── backend/                Node service that stays "running" while broken (the patient)
+│   ├── mockdb/                 the records service the backend talks to
+│   ├── frontend/               portal app on the other laptop (the symptom)
 │   ├── corpus/                 authored markdown docs + placement.json
-│   ├── inject.sh               plants the bug (idempotent)
-│   ├── revert.sh               restores health (idempotent, demo reset)
+│   ├── scripts/                inject.sh / revert.sh / build.sh / run-local.sh / deploy.sh / nuke.sh
+│   ├── deploy/                 systemd units + install.sh
+│   ├── BREAKAGE.md             fault catalogue and difficulty ladder
 │   └── ground_truth.md         grading key - NEVER deployed to client machines
 ├── collector/
 │   └── collector.sh            single dependency-free bash script (M2)
@@ -69,7 +67,7 @@ whackathon/
 │   │   │   ├── build.py        structural + extracted tiers (deterministic)
 │   │   │   ├── store.py        networkx wrapper, delta emission, snapshots
 │   │   │   ├── organize.py     embedding pair-model: relates edges + clusters (ADR-0016)
-│   │   │   └── cli.py          `brain graph` subcommands (inspect/mutate a run's graph)
+│   │   │   └── cli.py          `brain graph` subcommands (inspect a run's graph)
 │   │   ├── retrieval.py        search() + expand() facade used by the agent
 │   │   ├── agent/
 │   │   │   ├── protocol.py     JSON action schema, parsing, retries
@@ -80,10 +78,12 @@ whackathon/
 │   │   ├── report.py           report.json validation + markdown rendering
 │   │   └── api/
 │   │       ├── server.py       FastAPI app, static UI mount, lifespan
-│   │       └── routes.py       endpoints from API.md, SSE tailer
+│   │       ├── routes.py       endpoints from API.md, SSE tailer
+│   │       └── console.py      ConsoleApi adapter over the runs model (ADR-0015)
 │   └── tests/
 │       ├── fixtures/
-│       │   └── bundle-laptop-a-fake/   hand-crafted bundle per CONTRACT.md
+│       │   ├── bundle-laptop-a-20260726T120000Z/   hand-crafted bundle per CONTRACT.md
+│       │   └── bundle-laptop-b-20260726T120100Z/   its cross-machine sibling
 │       └── test_*.py
 ├── ui/                         React + @xyflow/react, built to static assets
 │   └── src/
@@ -111,9 +111,8 @@ Runtime state lives outside the repo under `$BRAIN_HOME` (default `~/brain/`):
 └── runs/                       one directory per run (section 10)
 ```
 
-Note: PLAN.md said "frontend + backend folder in the repo" for the scenario.
-Those live under `scenario/` because the Brain's UI also needs a home and two things named "frontend" guarantees confusion.
-See [ADR-0001](docs/decisions/ADR-0001-repo-layout.md).
+Note: the scenario's frontend and backend live under `scenario/` because the Brain's UI also needs a home and two things named "frontend" guarantees confusion.
+See ADR-0001.
 
 ## 4. Runtime topology
 
@@ -152,7 +151,7 @@ Numbered walk-through:
 
 1. `inject.sh` plants the bug on laptop A and restarts the service. `systemctl` still reports running; requests fail; errors accumulate in the app log. The subtlety is the point.
 2. An operator runs `collector.sh` on each laptop. It writes a bundle to `~/bundles/` per CONTRACT.md and (in push mode) scp's it to the Brain. In pull mode the operator runs `brain pull <host...>` on the Brain, which fetches each client's `manifest.json` first, then the full bundle. At single-digit MB we always pull whole; the manifest still matters because it tells the Brain what it is looking at.
-3. The watcher polls the inbox every 2 s. When a new valid bundle appears it starts a debounce window (default 10 s). Every bundle that lands inside the window joins the same case. This is what makes cross-machine synthesis possible: laptop A's and laptop B's bundles are indexed together. See [ADR-0006](docs/decisions/ADR-0006-case-based-runs.md).
+3. The watcher polls the inbox every 2 s. When a new valid bundle appears it starts a debounce window (default 10 s). Every bundle that lands inside the window joins the same case. This is what makes cross-machine synthesis possible: laptop A's and laptop B's bundles are indexed together. See ADR-0006.
 4. Ingest runs the three-stage pipeline (section 6). Chunking is deterministic; BM25 and the evidence graph are built once per run and never rebuilt mid-run.
 5. The agent loop (section 7) runs at most `BRAIN_MAX_TURNS` (default 5) retrieval turns plus one conclude turn, emitting events throughout.
 6. `report.py` validates the model's final JSON against the schema in API.md section 3, strips citations that do not resolve in the chunk store, renders markdown, and writes everything to `runs/<run_id>/`.
@@ -160,7 +159,7 @@ Numbered walk-through:
 
 ## 6. Ingest pipeline (Brain-side, per case)
 
-All indexing happens on the Brain, never on clients (PLAN C1: the sick machine may be resource-starved; the Brain has the model).
+All indexing happens on the Brain, never on clients (the sick machine may be resource-starved; the Brain has the model).
 
 ### 6.1 Chunker (deterministic, structure-aware)
 
@@ -181,7 +180,7 @@ class Chunk:
 
 Every field except `mentions` is set once by the chunker and never changed; `mentions` is populated during graph build (section 6.3).
 
-Per-file-type strategy (from PLAN M3 stage 1):
+Per-file-type strategy:
 
 | Input | Strategy |
 |---|---|
@@ -193,7 +192,7 @@ Per-file-type strategy (from PLAN M3 stage 1):
 
 Chunking is deterministic and stable because it is the retrieval substrate and the citation system.
 Graph extraction is fuzzy and iterative; it must be able to rebuild ten times without invalidating chunk IDs.
-This is why chunks and nodes are distinct objects (see [ADR-0004](docs/decisions/ADR-0004-chunks-vs-nodes.md)).
+This is why chunks and nodes are distinct objects (see ADR-0004).
 
 The chunk store is an in-memory dict `chunk_id -> Chunk`, serialized once to `runs/<run_id>/chunks.jsonl` after the graph build so `mentions` is populated.
 
@@ -219,13 +218,13 @@ for chunk in chunk_store:
         chunk.mentions.append(node.id)
 ```
 
-Two deterministic tiers (PLAN M3 stage 3):
+Two deterministic tiers:
 
 - Structural tier (zero inference): `machine`, `service`, `file` nodes straight from the manifest and directory layout; edges `file -located_on-> machine`, `service -has_config-> file`, and chunks linked to files via metadata.
 - Extracted tier (regex): `ip`, `port`, `host`, `env_var`, `error`, `ticket` nodes with `mentions` edges back to chunks. The `ss -tlnp` section of `network.txt` additionally yields `service -listens_on-> port` edges.
 - Cross-reference pass (the money edge): when a config chunk on machine B mentions an IP/port/hostname that resolves to machine A, emit `service -talks_to-> service`. When an extracted `host` matches no machine and no interface in any bundle, mark the `talks_to` edge `dangling: true`. For the demo scenario, that dangling edge IS the bug rendered as topology.
 
-PLAN's optional LLM concept tier is not cut but subsumed: it IS the reasoning layer (section 7), living in the same store (see [ADR-0005](docs/decisions/ADR-0005-two-layer-graph.md)).
+The optional LLM concept tier is not cut but subsumed: it IS the reasoning layer (section 7), living in the same store (see ADR-0005).
 
 Store: `networkx.MultiDiGraph` in memory wrapped by `graph/store.py`, which is the only mutation path and therefore the single place that enforces caps, assigns edge IDs, and emits `event: graph` deltas.
 Serialized to `runs/<run_id>/graph.json` (schema in API.md section 4).
@@ -257,7 +256,7 @@ The model emits:
 Node IDs are assigned by the store and returned in the next feedback message, so a `set_status` (or an edge endpoint) may only reference IDs from earlier turns; in this example `hyp:1` was created in a previous turn.
 Ops referencing unknown IDs are rejected with an error in the feedback.
 
-The loop executes all `search` actions concurrently (BM25 is CPU-cheap; this is PLAN M3.5's within-turn fan-out), applies graph deltas through the store (which returns assigned IDs or cap errors), executes `expand`, and feeds results back as the next user turn:
+The loop executes all `search` actions concurrently (BM25 is CPU-cheap; within-turn fan-out), applies graph deltas through the store (which returns assigned IDs or cap errors), executes `expand`, and feeds results back as the next user turn:
 
 ```json
 {
@@ -285,13 +284,13 @@ This is the move BM25 cannot make: lexical search finds the symptom chunk, the g
 
 ### 7.3 Turn budget and termination
 
-- Turn 1 input: manifest summaries + `system.txt` digests for every bundle in the case + the question. For USB-sourced cases (full-context mode, [ADR-0012](docs/decisions/ADR-0012-usb-intake-full-context.md)), turn 1 additionally carries every chunk verbatim, chunk-ID delimited, evidence before knowledge, capped by `BRAIN_FULL_CTX_CHARS`; `llm.py` pins `options.num_ctx` (`BRAIN_NUM_CTX`) so the injection cannot silently overflow Ollama's window.
+- Turn 1 input: manifest summaries + `system.txt` digests for every bundle in the case + the question. For USB-sourced cases (full-context mode, ADR-0012), turn 1 additionally carries every chunk verbatim, chunk-ID delimited, evidence before knowledge, capped by `BRAIN_FULL_CTX_CHARS`; `llm.py` pins `options.num_ctx` (`BRAIN_NUM_CTX`) so the injection cannot silently overflow Ollama's window.
 - Max `BRAIN_MAX_TURNS` (default 5) action turns; the `turns_remaining` counter is in every feedback message; at 0 the loop forces `conclude`.
 - Conclude turn: thinking optionally enabled, streaming on, model emits the report JSON (API.md section 3). `report.py` validates; on schema failure the loop retries once with the validation errors appended; on second failure the run is marked `failed` with the raw output preserved in `runs/`.
 - Malformed intermediate JSON: re-prompt with the parse error, max 2 retries per turn, then skip the turn (counts against budget).
 - Ollama timeouts: 120 s per call; one retry; then run `failed` with an `error` event.
 
-### 7.4 Prefix-cache discipline (PLAN M3.5)
+### 7.4 Prefix-cache discipline
 
 - The message array is append-only; earlier turns are never mutated.
 - Nothing variable (timestamps, run IDs) in the system prompt.
@@ -300,8 +299,7 @@ This is the move BM25 cannot make: lexical search finds the symptom chunk, the g
 ## 8. UI (M4.1 / M4.2)
 
 Stack: React + @xyflow/react (SVG/HTML graph canvas) + zustand + Tailwind, Vite build, output copied into the FastAPI static mount.
-Contract: nominally API.md, but the current `ui/` (fde-console, folded in per [ADR-0014](docs/decisions/ADR-0014-ui-swap-fde-console.md)) is built against a different `ConsoleApi` shape (`/api/snapshot`, `/api/chat`, `/api/context`, `/api/stream`) than the runs/report model `brain/api/routes.py` actually implements.
-Reconciling the two is unresolved - see [OPEN-QUESTIONS.md #8](docs/OPEN-QUESTIONS.md).
+Contract: API.md. The current `ui/` (fde-console, folded in per ADR-0014) speaks the `ConsoleApi` shape (`/api/snapshot`, `/api/chat`, `/api/context`, `/api/stream`), which the Brain serves as an adapter over the runs model in `brain/api/console.py` (ADR-0015).
 The UI is buildable against its own fixtures (`src/api/fixtures.ts`) regardless of backend state.
 
 Panels (single console screen, not a multi-view runs list, per the fde-console layout actually delivered):
@@ -309,11 +307,11 @@ Panels (single console screen, not a multi-view runs list, per the fde-console l
 - Header: run phase, elapsed/ETA, fixtures/live source toggle.
 - MachineRail: persistent left rail of known machines; click to filter every panel to one machine.
 - AgentPanel: chat-style trace of `TraceEvent`s (thought/query/retrieval/answer/user) plus a message box that streams the agent's reply token by token.
-- GraphPanel: @xyflow/react canvas of `Chunk` nodes and `GraphEdge`s, laid out with dagre; node click opens the evidence chunk - this is the "each node opens the actual file from the bundle" requirement.
+- GraphPanel: @xyflow/react canvas of `Chunk` nodes and `GraphEdge`s, laid out by the hand-rolled force simulation in `src/lib/layout.ts`; node click opens the evidence chunk - this is the "each node opens the actual file from the bundle" requirement.
 - LogsPanel: `LogEntry` list, filterable by machine/severity/source.
 - ProcessPanel: `AgentStep` list, one row per unit of agent work, scoped to a machine.
 
-Graph rendering policy (still binding, mechanism-agnostic): the reasoning layer plus every evidence node reachable from it within 1 hop is always shown; the rest of the evidence layer appears only through expansion clicks, keeping the visible graph within the caps meaningful (see [ADR-0005](docs/decisions/ADR-0005-two-layer-graph.md)).
+Graph rendering policy (still binding, mechanism-agnostic): the reasoning layer plus every evidence node reachable from it within 1 hop is always shown; the rest of the evidence layer appears only through expansion clicks, keeping the visible graph within the caps meaningful (see ADR-0005).
 
 Client-side rules (binding): rAF-batched token flush; seq-number dedupe on SSE reconnect; thinking tokens collapsed by default.
 
@@ -322,7 +320,7 @@ Client-side rules (binding): rAF-batched token flush; seq-number dedupe on SSE r
 - Across cases: the watcher dispatches each case to a worker task; runs are fully independent (own chunk store, index, graph, event log). Bounded by a semaphore equal to `OLLAMA_NUM_PARALLEL`.
 - Within a turn: all N search queries fan out concurrently.
 - The loop itself is serial.
-- Ollama config: `OLLAMA_MAX_LOADED_MODELS=2` - the graph organizer's embedding pair-model (`qwen3-embedding:8b`, 4.7 GB) stays resident beside the 81 GB primary; headroom measured at ~40 GB ([ADR-0016](docs/decisions/ADR-0016-organization-overlay.md)). `OLLAMA_NUM_PARALLEL` starts at 1: a second KV cache for the 122b is still unverified headroom; raise to 2 only if measured (see OPEN-QUESTIONS #3). Predictable serial latency beats swapping mid-demo.
+- Ollama config: `OLLAMA_MAX_LOADED_MODELS=2` - the graph organizer's embedding pair-model (`qwen3-embedding:8b`, 4.7 GB) stays resident beside the 81 GB primary; headroom measured at ~40 GB (ADR-0016). `OLLAMA_NUM_PARALLEL` starts at 1: a second KV cache for the 122b is still unverified headroom; raise to 2 only if measured. Predictable serial latency beats swapping mid-demo.
 - Graph organizer concurrency: a per-run worker thread, event-driven (post-ingest, post-turn, post-conclude) with dirty-flag coalescing; it never blocks or delays the diagnosing model's turns and its output is never agent-visible (ADR-0016).
 
 ## 10. runs/ directory (eval harness for free)
@@ -340,8 +338,8 @@ Client-side rules (binding): rAF-batched token flush; seq-number dedupe on SSE r
 └── raw/               unvalidated model outputs per turn (debugging)
 ```
 
-Grading: `eval/run_eval.py` runs N independent real-model trials of a case and auto-grades each `report.json` against the criteria from `scenario/ground_truth.md` (`eval/grading.py`); iterate `prompts.py` until the hit rate holds.
-`BRAIN_THINK_FINAL` (config) toggles thinking on the conclude turn; the harness's `--thinking` flag drives the OPEN-QUESTIONS #4 A/B.
+Grading: `eval/run_eval.py` runs N independent real-model trials of a case and auto-grades each `report.json` against a scenario-specific criteria set (`eval/grading.py --scenario fixture|clinic`; the clinic key encodes `scenario/ground_truth.md`); iterate `prompts.py` until the hit rate holds.
+`BRAIN_THINK_FINAL` (config) toggles thinking on the conclude turn; the harness's `--thinking` flag drives that A/B.
 Every run is a future eval case and fine-tuning example.
 
 ## 11. Error handling summary
@@ -361,26 +359,26 @@ Every run is a future eval case and fine-tuning example.
 | Thing | Version / value | Note |
 |---|---|---|
 | Python | 3.12.x (3.12.3 already on the Brain) | pinned in pyproject; no new install needed |
-| Python deps | fastapi, uvicorn, rank_bm25, networkx, httpx, pydantic | all pure-python or wheel-safe on 3.12; SSE is hand-rolled over events.jsonl |
+| Python deps | fastapi, uvicorn, rank_bm25, networkx, httpx, pydantic, numpy | all pure-python or wheel-safe on 3.12; SSE is hand-rolled over events.jsonl |
 | Node | already installed | UI build only; not needed at runtime on clients |
-| Ollama models | qwen3.5:122b (primary), qwen3-embedding:8b (future embeddings seam) | already pulled |
+| Ollama models | qwen3.5:122b (primary), qwen3-embedding:8b (graph organizer pair-model, ADR-0016) | already pulled |
 | collector.sh | bash + coreutils only | zero dependencies, fits on a USB stick |
 | Ports | brain 8000, Ollama 11434 | one UI-facing port |
 
 ## 13. Build order and parallel tracks
 
 1. Minute 0-10: this spec's two seams already exist (CONTRACT.md, API.md); both owners sign off.
-2. Track A (Brain): hand-craft `brain/tests/fixtures/bundle-laptop-a-fake/` per the contract -> chunker -> BM25 -> agent loop end-to-end with search only -> graph as pure upgrade (the loop degrades gracefully without `expand`).
+2. Track A (Brain): hand-craft the `brain/tests/fixtures/` bundles per the contract -> chunker -> BM25 -> agent loop end-to-end with search only -> graph as pure upgrade (the loop degrades gracefully without `expand`).
 3. Track B (UI): mock JSON per API.md -> RunsList -> LiveRun trail -> graph deltas.
 4. Track C (scenario owner): backend/frontend apps -> inject/revert -> corpus + placement -> ground_truth.
 5. Track D (collector): collector.sh against a healthy machine -> against the bugged one -> eyeball that the env var error is captured in the bundle.
-6. Integration: real bundle replaces the fixture; pre-demo checklist from PLAN C1 (SSH keys both ways, inbox permissions, one dry-run scp, static IPs pinned for cable mode).
+6. Integration: real bundle replaces the fixture; pre-demo checklist (SSH keys both ways, inbox permissions, one dry-run scp, static IPs pinned for cable mode).
 
 ## 14. Operator layer: OpenClaw (M4.3)
 
-Required scope per [ADR-0011](docs/decisions/ADR-0011-openclaw-operator-layer.md): OpenClaw is the chat-facing operator layer; OpenShell is deferred to the autofix phase; NemoClaw is out of scope.
+Required scope per ADR-0011: OpenClaw is the chat-facing operator layer; OpenShell is deferred to the autofix phase; NemoClaw is out of scope.
 
-- `integration/openclaw/brainctl`: a small bash CLI wrapping the Brain API (curl only, no other deps): `brainctl bundles`, `brainctl diagnose [bundle_id...] [-q question]`, `brainctl runs`, `brainctl watch <run_id>` (follows the SSE stream, prints the trail), `brainctl report <run_id>` (prints report markdown). Reads `BRAIN_URL` (default `http://127.0.0.1:8000`).
+- `integration/openclaw/brainctl`: a small bash CLI wrapping the Brain API (curl only, no other deps): `brainctl health`, `brainctl bundles`, `brainctl diagnose [bundle_id...] [-q question]`, `brainctl runs`, `brainctl watch <run_id>` (follows the SSE stream, prints the trail), `brainctl report <run_id>` (prints report markdown), `brainctl usb`, `brainctl reset`. Reads `BRAIN_URL` (default `http://127.0.0.1:8000`).
 - `integration/openclaw/SKILL.md`: the OpenClaw skill definition teaching the agent when and how to use `brainctl`, with the workflow (list bundles -> diagnose -> watch -> summarize report with citations) and guardrails (never apply fixes; present `proposed_fix_script` for human review per ADR-0010).
 - `integration/openclaw/install.sh`: copies/symlinks the skill into the local OpenClaw skills directory and `brainctl` onto PATH.
 - Boundary rules: OpenClaw consumes the Brain API exactly as the UI does, gains no private endpoints, and never talks to Ollama about diagnosis; the Brain remains the only diagnostic reasoner.

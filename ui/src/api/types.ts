@@ -1,6 +1,7 @@
 /**
- * Mirror of CONTRACT.md. If the Brain changes a field name, change it here first,
- * then let the compiler show you every place that breaks.
+ * Mirror of API.md's ConsoleApi surface (served by brain/src/brain/api/console.py).
+ * If the Brain changes a field name, change it here first, then let the compiler
+ * show you every place that breaks.
  */
 
 export type Severity = "critical" | "error" | "warn" | "info" | "debug";
@@ -76,7 +77,7 @@ export interface GraphEdge {
 export interface GraphPayload {
   chunks: Chunk[];
   edges: GraphEdge[];
-  /** Organizer clusters (ADR-0016); label is null until the curator names them. */
+  /** Organizer clusters (ADR-0016); label is reserved for a naming pass that was never built, so it is always null today. */
   clusters?: { id: string; label: string | null }[];
 }
 

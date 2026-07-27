@@ -156,10 +156,11 @@ outage *easier* to diagnose rather than harder.
 
 ---
 
-## Corpus tuning (M0, not yet built)
+## Corpus tuning
 
-The fake corpus in `/opt/company-docs/` must be authored *against* the chosen
-bug so the agent has to reason rather than string-match:
+The fake corpus in `/opt/company-docs/` (authored in `corpus/`, placed per
+`corpus/placement.json`) is written *against* the chosen bug so the agent has
+to reason rather than string-match:
 
 - **one near-miss** — e.g. `2025-03: portal 502s — root cause was a firewall
   rule`. Same symptom, wrong cause. Punishes an agent that pattern-matches "502"
@@ -173,7 +174,7 @@ merging two bundles.
 
 ## Grading
 
-`ground_truth.md` (not yet written) holds the real root cause and what a correct
+`ground_truth.md` holds the real root cause and what a correct
 diagnosis must contain. It **never ships to a client machine**, and `nuke.sh`
 removes it. A diagnosis passes if it names the config key, the file, the bad
 value, and the fix — citing chunk IDs for each.

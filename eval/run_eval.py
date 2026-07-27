@@ -6,7 +6,7 @@ model (no server needed), grades each report against ground truth, and writes
 results.jsonl + summary.md. Run with brain's venv python:
 
     brain/.venv/bin/python eval/run_eval.py --trials 5
-    brain/.venv/bin/python eval/run_eval.py --trials 3 --thinking   # A/B for OPEN-QUESTIONS #4
+    brain/.venv/bin/python eval/run_eval.py --trials 3 --thinking   # A/B: thinking on the conclude turn
 
 Trials are sequential on purpose: one Ollama slot, predictable latency.
 """
@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from grading import CRITERIA, grade  # noqa: E402
+from grading import SCENARIOS, Criterion, criteria_for, grade  # noqa: E402
 
 from brain.agent.loop import RunContext, execute_run  # noqa: E402
 from brain.config import load_config  # noqa: E402
@@ -34,7 +34,7 @@ DEFAULT_BUNDLES = [
 DEFAULT_QUESTION = "Why is the frontend on laptop-b showing BACKEND UNAVAILABLE?"
 
 
-def run_trial(idx: int, out_dir: Path, bundles: list[Path], question: str, cfg, llm) -> dict:
+def run_trial(idx: int, out_dir: Path, bundles: list[Path], question: str, cfg, llm, criteria: list[Criterion]) -> dict:
     run_dir = out_dir / f"trial-{idx:02d}"
     (run_dir / "bundles").mkdir(parents=True)
     for b in bundles:
@@ -48,7 +48,7 @@ def run_trial(idx: int, out_dir: Path, bundles: list[Path], question: str, cfg, 
     report = None
     if (run_dir / "report.json").is_file():
         report = json.loads((run_dir / "report.json").read_text())
-    graded = grade(report)
+    graded = grade(report, criteria)
     metrics = {}
     if (run_dir / "metrics.json").is_file():
         metrics = json.loads((run_dir / "metrics.json").read_text())
@@ -63,13 +63,13 @@ def run_trial(idx: int, out_dir: Path, bundles: list[Path], question: str, cfg, 
     }
 
 
-def summarize(rows: list[dict], out_dir: Path, args) -> str:
+def summarize(rows: list[dict], out_dir: Path, args, criteria: list[Criterion]) -> str:
     n = len(rows)
     passed = sum(1 for r in rows if r["passed"])
     lines = [
         "# Eval summary",
         "",
-        f"Config: trials={n}, thinking={args.thinking}, max_turns={args.max_turns}, model={args.model}",
+        f"Config: trials={n}, scenario={args.scenario}, thinking={args.thinking}, max_turns={args.max_turns}, model={args.model}",
         f"Started: {args.started}",
         "",
         f"## Hit rate: {passed}/{n} passed",
@@ -83,7 +83,7 @@ def summarize(rows: list[dict], out_dir: Path, args) -> str:
             f"| {r['turns']} | {r['tokens_generated']} | {', '.join(r['required_failed']) or '-'} |"
         )
     lines += ["", "## Per-criterion rates", "", "| criterion | required | rate |", "|---|---|---|"]
-    for c in CRITERIA:
+    for c in criteria:
         rate = sum(1 for r in rows if r["criteria"][c.name])
         lines.append(f"| {c.name} | {'yes' if c.required else 'no'} | {rate}/{n} |")
     elapsed_vals = [r["elapsed_s"] for r in rows if r["status"] == "done"]
@@ -99,6 +99,13 @@ def main() -> int:
     ap.add_argument("--trials", type=int, default=5)
     ap.add_argument("--bundles", nargs="*", type=Path, default=DEFAULT_BUNDLES)
     ap.add_argument("--question", default=DEFAULT_QUESTION)
+    ap.add_argument(
+        "--scenario",
+        choices=sorted(SCENARIOS),
+        default="fixture",
+        help="grading key: 'fixture' for the bundled test fixtures (the default bundles), "
+        "'clinic' for Cedar Hollow bundles collected from a live scenario/ deployment",
+    )
     ap.add_argument("--thinking", action="store_true", help="enable thinking on the conclude turn")
     ap.add_argument("--max-turns", type=int, default=None)
     ap.add_argument("--model", default=None)
@@ -128,10 +135,11 @@ def main() -> int:
         print(f"ollama not ready: {ping}", file=sys.stderr)
         return 1
 
+    criteria = criteria_for(SCENARIOS[args.scenario])
     rows = []
     with open(out_dir / "results.jsonl", "a") as fh:
         for i in range(1, args.trials + 1):
-            row = run_trial(i, out_dir, args.bundles, args.question, cfg, llm)
+            row = run_trial(i, out_dir, args.bundles, args.question, cfg, llm, criteria)
             rows.append(row)
             fh.write(json.dumps(row) + "\n")
             fh.flush()
@@ -143,7 +151,7 @@ def main() -> int:
             )
 
     print()
-    print(summarize(rows, out_dir, args))
+    print(summarize(rows, out_dir, args, criteria))
     print(f"artifacts: {out_dir}")
     return 0
 

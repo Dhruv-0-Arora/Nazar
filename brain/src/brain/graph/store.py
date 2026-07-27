@@ -11,7 +11,6 @@ from typing import Callable
 import networkx as nx
 
 from .model import (
-    EVIDENCE_RELS,
     LABEL_MAX,
     MAX_FINDINGS_PER_HYPOTHESIS,
     MAX_HYPOTHESES,
@@ -179,5 +178,3 @@ class GraphStore:
             "nodes": [n.to_dict() for n in self.nodes.values()],
             "edges": [e.to_dict() for e in self.edges.values()],
         }
-
-    _EVIDENCE_RELS = EVIDENCE_RELS  # exposed for build-time sanity checks
