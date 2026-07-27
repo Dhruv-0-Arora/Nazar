@@ -11,7 +11,7 @@ No cloud, no data leaving the building.
 
 ## Watch the demo
 
-[![Nazar demo video](https://img.youtube.com/vi/nNunx93hYl4/maxresdefault.jpg)](https://www.youtube.com/watch?v=nNunx93hYl4)
+[![Nazar demo video](https://img.youtube.com/vi/8GF8j_VnHpE/maxresdefault.jpg)](https://www.youtube.com/watch?v=8GF8j_VnHpE)
 
 *Click the image to play on YouTube.*
 
