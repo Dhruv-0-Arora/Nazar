@@ -19,7 +19,7 @@ export function Header() {
     <header className="hair flex items-center gap-6 border-b bg-panel px-4 py-2.5">
       <div className="flex items-baseline gap-2.5">
         <span className="text-bright text-sm font-semibold tracking-tight">
-          FDE Console
+          Nazar
         </span>
         <span className="text-dim text-[11px]">{run?.runId ?? "no run"}</span>
       </div>

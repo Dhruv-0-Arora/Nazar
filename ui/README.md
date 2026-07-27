@@ -1,4 +1,4 @@
-# FDE Console
+# Nazar
 
 React frontend for the Brain. Runs entirely on fixtures right now; flips to the live
 Brain by changing one file.
