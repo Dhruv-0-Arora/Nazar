@@ -1,6 +1,6 @@
 # Nazar
 
-![NazarLogo](https://drive.google.com/file/d/1mCaD1XI4S2j5CjTBKV3Wy9SDB3IEZuXe/view?usp=drivesdk)
+![NazarLogo](https://drive.google.com/uc?export=view&id=1mCaD1XI4S2j5CjTBKV3Wy9SDB3IEZuXe)
 
 **An offline AI that figures out why a computer system broke, without ever touching the internet.**
 
