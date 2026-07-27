@@ -106,6 +106,13 @@ def create_router(cfg: Config, registry: RunRegistry, llm) -> APIRouter:
 
         return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
+    @router.get("/runs/{run_id}/organization")
+    async def organization(run_id: str) -> dict:
+        if registry.get_meta(run_id) is None:
+            raise HTTPException(status_code=404, detail="unknown run")
+        overlay = registry.get_organization(run_id)
+        return overlay or {"version": 1, "seq": 0, "clusters": [], "edges": []}
+
     @router.get("/runs/{run_id}/graph")
     async def graph(run_id: str) -> dict:
         snapshot = registry.get_graph(run_id)

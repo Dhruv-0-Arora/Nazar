@@ -48,6 +48,7 @@ class RunContext:
     graph: GraphStore | None = None
     events: EventLog | None = None
     metrics: list[dict] = field(default_factory=list)
+    organization: dict | None = None  # organizer overlay (ADR-0016), never agent-visible
 
     def meta(self) -> dict:
         return {
@@ -67,7 +68,7 @@ class RunContext:
         (self.dir / "meta.json").write_text(json.dumps(self.meta(), indent=2), encoding="utf-8")
 
 
-def execute_run(ctx: RunContext, cfg: Config, llm) -> None:
+def execute_run(ctx: RunContext, cfg: Config, llm, organizer=None) -> None:
     """Blocking; run via asyncio.to_thread. Owns all run artifacts and events."""
     ev = EventLog(ctx.dir / "events.jsonl")
     ctx.events = ev
@@ -81,6 +82,8 @@ def execute_run(ctx: RunContext, cfg: Config, llm) -> None:
 
     try:
         retriever, manifests = _ingest(ctx, ev)
+        if organizer:
+            organizer.notify(ctx, "ingest")
         full_block = None
         if ctx.full_context:
             full_block, included, omitted = _render_full_context(retriever.chunk_store, cfg.full_ctx_chars)
@@ -118,6 +121,8 @@ def execute_run(ctx: RunContext, cfg: Config, llm) -> None:
             feedback = _execute_actions(turn, retriever, ev, turn_no, query_trail)
             feedback["turns_remaining"] = cfg.max_turns - turn_no
             messages.append({"role": "user", "content": json.dumps(feedback, ensure_ascii=False)})
+            if organizer:
+                organizer.notify(ctx, "turn")
 
         if not concluded:
             ev.emit("status", {"turn": ctx.turns_completed, "state": "refining"})
@@ -138,6 +143,8 @@ def execute_run(ctx: RunContext, cfg: Config, llm) -> None:
         ctx.status = "done"
         ctx.finished_at = datetime.now(timezone.utc).isoformat()
         ctx.save_meta()
+        if organizer:
+            organizer.notify(ctx, "conclude")
         ev.emit("done", {"run_id": ctx.run_id, "elapsed_s": round(ctx.elapsed_s, 1)})
     except Exception as e:  # noqa: BLE001 - a run failure must be recorded, never propagate
         ctx.status = "failed"
@@ -145,6 +152,10 @@ def execute_run(ctx: RunContext, cfg: Config, llm) -> None:
         ctx.elapsed_s = time.monotonic() - start
         ctx.finished_at = datetime.now(timezone.utc).isoformat()
         ctx.save_meta()
+        if ctx.graph is not None:  # failed runs still render their graph (plan stage 1)
+            snapshot = ctx.graph.snapshot()
+            snapshot.update({"run_id": ctx.run_id, "seq": ev.seq})
+            (ctx.dir / "graph.json").write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
         ev.emit("error", {"message": str(e)})
     finally:
         ev.close()

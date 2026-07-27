@@ -36,6 +36,7 @@ const EDGE_COLOR: Record<EdgeKind, string> = {
   emitted: "var(--color-live)",
   references: "var(--color-dim)",
   contradicts: "var(--color-critical)",
+  relates: "var(--color-dim)",
 };
 
 /** Nodes are React components, which is the whole reason we're on React Flow. */
@@ -180,18 +181,31 @@ export function GraphPanel() {
         target: e.target,
         type: "floating",
         animated: e.kind === "emitted",
-        label: e.kind,
+        // "relates" edges arrive by the dozen from the organizer; labeling
+        // every one turns the canvas into chip soup, so they stay unlabeled.
+        label: e.kind === "relates" ? undefined : e.kind,
         style: {
           stroke: EDGE_COLOR[e.kind],
-          strokeDasharray: e.kind === "contradicts" ? "4 3" : undefined,
-          opacity: 0.35 + e.weight * 0.6,
+          strokeDasharray: e.kind === "contradicts" ? "4 3" : e.kind === "relates" ? "2 4" : undefined,
+          strokeWidth: e.kind === "relates" ? 1 : undefined,
+          opacity: e.kind === "relates" ? 0.5 : 0.35 + e.weight * 0.6,
         },
       }));
 
-    const key = visible
-      .map((c) => c.id)
+    // Edge changes must re-trigger layout too: springs only exist during the
+    // sim, so edges that arrive after the nodes would otherwise never pull.
+    const edgeSig = graph.edges
+      .filter((e) => ids.has(e.source) && ids.has(e.target))
+      .map((e) => `${e.source}>${e.target}:${e.kind}`)
       .sort()
       .join(",");
+    const key = `${visible
+      .map((c) => c.id)
+      .sort()
+      .join(",")}|${edgeSig}`;
+
+    // Group gravity wells: organizer clusters when present, machines otherwise.
+    const groupByChunk = new Map(visible.map((c) => [c.id, c.cluster ?? `m:${c.machineId}`]));
 
     if (key !== layoutKey.current) {
       const rawNodes: Node[] = visible.map((chunk) => ({
@@ -201,7 +215,15 @@ export function GraphPanel() {
         zIndex: focusedChunk === chunk.id ? 1000 : 0,
         data: { chunk, focused: focusedChunk === chunk.id },
       }));
-      setNodes(layout(rawNodes, rawEdges));
+      // Seed from current positions so a re-layout refines in place instead of
+      // snapping user-dragged tiles back to a fresh spiral.
+      setNodes((current) => {
+        const initial = new Map(current.map((n) => [n.id, n.position]));
+        return layout(rawNodes, rawEdges, {
+          initial: initial.size > 0 ? initial : undefined,
+          groupOf: (id) => groupByChunk.get(id),
+        });
+      });
       layoutKey.current = key;
     } else {
       setNodes((nds) =>

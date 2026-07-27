@@ -11,6 +11,7 @@ Field names here are camelCase on purpose: they mirror types.ts verbatim.
 
 import asyncio
 import json
+import math
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -115,12 +116,13 @@ def build_snapshot(cfg: Config, registry: RunRegistry) -> dict:
     report = (registry.get_report(run_id)[0] or {}) if run_id and run and run.get("status") == "done" else {}
     cited = {e.get("chunk_id") for e in report.get("evidence", [])}
     scores = _retrieval_scores(events)
+    organization = registry.get_organization(run_id) if run_id else None
 
     return {
         "run": _run_status(run),
         "machines": _machines(cfg, chunks),
         "logs": _logs(chunks),
-        "graph": _graph(registry, run_id, chunks, cited, scores),
+        "graph": _graph(registry, run_id, chunks, cited, scores, organization),
         "steps": _steps(events, run),
         "trace": [t for t in (_event_to_trace(e.event, e.data, e.seq, e.ts) for e in events) if t]
         + ([_trace("answer", _answer_text(report, "done", {}), citations=sorted(c for c in cited if c),
@@ -213,17 +215,35 @@ def _kind(path: str) -> str:
     return "log"
 
 
-def _graph(registry: RunRegistry, run_id: str | None, chunks: list[dict], cited: set, scores: dict) -> dict:
+MAX_DERIVED_EDGES = 250
+MAX_COMENTION_PER_CHUNK = 3
+MAX_EMITTED_PER_SERVICE = 5
+HUB_GUARD = 8  # entities mentioned by more chunks are too generic to link through
+DOC_KINDS = ("doc", "runbook", "ticket")
+
+
+def _graph(registry: RunRegistry, run_id: str | None, chunks: list[dict], cited: set, scores: dict,
+           organization: dict | None = None) -> dict:
     if not chunks:
-        return {"chunks": [], "edges": []}
+        return {"chunks": [], "edges": [], "clusters": []}
     interesting = [c for c in chunks if c["chunk_id"] in cited or c["chunk_id"] in scores or _kind(c["file_path"]) != "log"]
     pool = chunks if len(chunks) <= MAX_GRAPH_CHUNKS else interesting[:MAX_GRAPH_CHUNKS]
     included = {c["chunk_id"] for c in pool}
+    kind_of = {c["chunk_id"]: _kind(c["file_path"]) for c in pool}
+    cluster_of = {}
+    clusters_out = []
+    if organization:
+        for cluster in organization.get("clusters", []):
+            members = [m for m in cluster.get("members", []) if m in included]
+            if members:
+                clusters_out.append({"id": cluster["id"], "label": cluster.get("label")})
+                for m in members:
+                    cluster_of[m] = cluster["id"]
 
     nodes = [{
         "id": c["chunk_id"],
         "machineId": c["machine_id"],
-        "kind": _kind(c["file_path"]),
+        "kind": kind_of[c["chunk_id"]],
         "path": c["file_path"],
         "lineStart": c["span"][0],
         "lineEnd": c["span"][1],
@@ -231,28 +251,108 @@ def _graph(registry: RunRegistry, run_id: str | None, chunks: list[dict], cited:
         "content": c["text"],
         "score": scores.get(c["chunk_id"]),
         "implicated": c["chunk_id"] in cited,
+        "cluster": cluster_of.get(c["chunk_id"]),
     } for c in pool]
 
-    edges = []
+    edges: list[dict] = []
+    seen_pairs: set[tuple] = set()
+
+    def add_edge(source: str | None, target: str | None, kind: str, weight: float) -> bool:
+        if not source or not target or source == target:
+            return False
+        if source not in included or target not in included:
+            return False
+        pair = (source, target, kind)
+        if pair in seen_pairs or (target, source, kind) in seen_pairs:
+            return False
+        seen_pairs.add(pair)
+        edges.append({"id": f"ce{len(edges) + 1}", "source": source, "target": target, "kind": kind, "weight": round(weight, 3)})
+        return True
+
+    def pick(evidence: list[str], prefer: str | None = None, exclude: str | None = None) -> str | None:
+        """Best renderable endpoint chunk: provenance > cited > highest score > first."""
+        usable = [cid for cid in evidence if cid in included and cid != exclude]
+        if prefer and prefer in included and prefer != exclude:
+            return prefer
+        if not usable:
+            return None
+        for cid in usable:
+            if cid in cited:
+                return cid
+        scored = [c for c in usable if c in scores]
+        if scored:
+            return max(scored, key=lambda c: scores[c])
+        return usable[0]
+
     snapshot = registry.get_graph(run_id) or {"nodes": [], "edges": []}
-    node_evidence = {n["id"]: [cid for cid in n.get("evidence", []) if cid in included] for n in snapshot["nodes"]}
-    rel_to_kind = {"talks_to": "calls", "has_config": "reads", "located_on": None, "mentions": None, "listens_on": None,
-                   "about": "references", "supports": "references", "contradicts": "contradicts", "retrieved_by": None}
-    seen_pairs = set()
+    node_by_id = {n["id"]: n for n in snapshot["nodes"]}
+    rel_to_kind = {"talks_to": "calls", "has_config": "reads",
+                   "about": "references", "supports": "references", "contradicts": "contradicts"}
+
+    # structural + reasoning edges, with real endpoint selection
     for e in snapshot["edges"]:
         kind = rel_to_kind.get(e["rel"])
         if kind is None:
             continue
-        srcs, dsts = node_evidence.get(e["from"], []), node_evidence.get(e["to"], [])
-        if not srcs or not dsts or srcs[0] == dsts[0]:
+        attrs = e.get("attrs", {})
+        src_node, dst_node = node_by_id.get(e["from"]), node_by_id.get(e["to"])
+        if src_node is None or dst_node is None:
             continue
-        pair = (srcs[0], dsts[0], kind)
-        if pair in seen_pairs:
+        src = pick(src_node.get("evidence", []), prefer=attrs.get("src_chunk"))
+        dst = pick(dst_node.get("evidence", []), exclude=src)
+        add_edge(src, dst, kind, 2.0 if attrs.get("dangling") else 1.0)
+
+    # emitted: each service's anchor chunk (config, else status) -> its log/journal chunks
+    for n in snapshot["nodes"]:
+        if n.get("type") != "service":
             continue
-        seen_pairs.add(pair)
-        edges.append({"id": f"ce{len(edges) + 1}", "source": srcs[0], "target": dsts[0], "kind": kind,
-                      "weight": 2.0 if e.get("attrs", {}).get("dangling") else 1.0})
-    return {"chunks": nodes, "edges": edges}
+        evidence = [cid for cid in n.get("evidence", []) if cid in included]
+        anchor = next((cid for cid in evidence if "/config/" in cid), None) or next(
+            (cid for cid in evidence if "/status.txt" in cid), None
+        )
+        if not anchor:
+            continue
+        emitted = 0
+        for cid in evidence:
+            if emitted >= MAX_EMITTED_PER_SERVICE:
+                break
+            if "/journal.txt" in cid or kind_of.get(cid) == "log":
+                if add_edge(anchor, cid, "emitted", 1.0):
+                    emitted += 1
+
+    # references via co-mention: entities shared by a few chunks link them
+    per_chunk_comention: dict[str, int] = {}
+    derived = 0
+    for n in snapshot["nodes"]:
+        if derived >= MAX_DERIVED_EDGES:
+            break
+        if n.get("type") not in ("env_var", "error", "ticket", "host"):
+            continue
+        members = [cid for cid in n.get("evidence", []) if cid in included]
+        if not 2 <= len(members) <= HUB_GUARD:
+            continue
+        weight = 1.0 / max(1.0, math.log2(1 + len(members)))
+        docs = [c for c in members if kind_of.get(c) in DOC_KINDS]
+        others = [c for c in members if kind_of.get(c) not in DOC_KINDS]
+        pairs = [(d, o) for d in docs for o in others] or [(members[0], m) for m in members[1:]]
+        for source, target in pairs:
+            if derived >= MAX_DERIVED_EDGES:
+                break
+            if per_chunk_comention.get(source, 0) >= MAX_COMENTION_PER_CHUNK:
+                continue
+            if per_chunk_comention.get(target, 0) >= MAX_COMENTION_PER_CHUNK:
+                continue
+            if add_edge(source, target, "references", weight):
+                per_chunk_comention[source] = per_chunk_comention.get(source, 0) + 1
+                per_chunk_comention[target] = per_chunk_comention.get(target, 0) + 1
+                derived += 1
+
+    # organizer overlay: semantic relates edges (ADR-0016)
+    if organization:
+        for e in organization.get("edges", []):
+            add_edge(e.get("source"), e.get("target"), "relates", float(e.get("weight", 0.5)))
+
+    return {"chunks": nodes, "edges": edges, "clusters": clusters_out}
 
 
 def _steps(events, run: dict | None) -> list[dict]:

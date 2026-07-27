@@ -23,6 +23,7 @@ All API routes live under `/api/` to avoid colliding with UI routes.
 | GET | `/api/runs/{run_id}` | full run detail incl. report when done |
 | GET | `/api/runs/{run_id}/stream` | SSE live event stream |
 | GET | `/api/runs/{run_id}/graph` | current graph snapshot (nodes + edges) |
+| GET | `/api/runs/{run_id}/organization` | organizer overlay: clusters + relates edges (ADR-0016) |
 | GET | `/api/runs/{run_id}/chunks/{chunk_id}` | raw chunk text + metadata |
 
 ### GET /api/healthz
@@ -145,6 +146,8 @@ event: graph    data: {"op": "add_node" | "add_edge" | "set_status", ...}   // s
 event: token    data: {"turn": 6, "text": "The root cause is", "kind": "report" | "thinking"}
 event: done     data: {"run_id": "...", "elapsed_s": 19.4}
 event: error    data: {"message": "ollama timeout on turn 3"}
+event: organize data: {"phase": "ingest" | "turn" | "conclude" | "coalesced", "clusters": 4, "edges": 87}
+                (or {"phase": ..., "error": "..."} when the embedder is unavailable; see ADR-0016)
 ```
 
 UI guidance (binding, from PLAN M4.2):

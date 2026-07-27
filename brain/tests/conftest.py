@@ -35,6 +35,7 @@ def cfg(tmp_path) -> Config:
         llm_timeout_s=5,
         think_final=False,
         usb_watch=False,  # tests drive usb.receive explicitly
+        organize=False,  # organizer tests construct their own Organizer + stub embedder
     )
     c.ensure_dirs()
     return c

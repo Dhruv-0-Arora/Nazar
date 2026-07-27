@@ -22,6 +22,15 @@ class Config:
     usb_sources: tuple[str, ...] = ()  # extra outbox paths beyond mount globs
     full_ctx_chars: int = 300_000  # budget for full-context injection
     num_ctx: int = 32_768  # ollama context window; full-context mode needs headroom
+    # graph organizer, the embedding pair-model (ADR-0016)
+    organize: bool = True
+    embed_model: str = "qwen3-embedding:8b"
+    embed_timeout_s: float = 30.0
+    org_sim_threshold: float = 0.72
+    org_max_edges_per_chunk: int = 3
+    org_max_edges: int = 300
+    # stage-3 LLM curator, disabled until built; agreed default: nemotron-cascade-2:30b
+    curator_model: str = ""
 
     @property
     def inbox(self) -> Path:
@@ -62,4 +71,11 @@ def load_config() -> Config:
         usb_sources=tuple(p for p in env.get("BRAIN_USB_SOURCES", "").split(":") if p),
         full_ctx_chars=int(env.get("BRAIN_FULL_CTX_CHARS", "300000")),
         num_ctx=int(env.get("BRAIN_NUM_CTX", "32768")),
+        organize=env.get("BRAIN_ORGANIZE", "1") not in ("0", "false", "no"),
+        embed_model=env.get("BRAIN_EMBED_MODEL", "qwen3-embedding:8b"),
+        embed_timeout_s=float(env.get("BRAIN_EMBED_TIMEOUT_S", "30")),
+        org_sim_threshold=float(env.get("BRAIN_ORG_SIM_THRESHOLD", "0.72")),
+        org_max_edges_per_chunk=int(env.get("BRAIN_ORG_MAX_EDGES_PER_CHUNK", "3")),
+        org_max_edges=int(env.get("BRAIN_ORG_MAX_EDGES", "300")),
+        curator_model=env.get("BRAIN_CURATOR_MODEL", ""),
     )

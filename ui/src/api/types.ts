@@ -53,6 +53,8 @@ export interface Chunk {
   score: number | null;
   /** Agent flagged this as supporting the current hypothesis. */
   implicated: boolean;
+  /** Organizer cluster id (ADR-0016). Null/absent until the organizer has run. */
+  cluster?: string | null;
 }
 
 export type EdgeKind =
@@ -60,7 +62,8 @@ export type EdgeKind =
   | "reads" // service -> config
   | "emitted" // service -> log chunk
   | "references" // doc -> config key
-  | "contradicts"; // near-miss doc vs. evidence
+  | "contradicts" // near-miss doc vs. evidence
+  | "relates"; // organizer: semantically similar (embedding pair-model, ADR-0016)
 
 export interface GraphEdge {
   id: string;
@@ -73,6 +76,8 @@ export interface GraphEdge {
 export interface GraphPayload {
   chunks: Chunk[];
   edges: GraphEdge[];
+  /** Organizer clusters (ADR-0016); label is null until the curator names them. */
+  clusters?: { id: string; label: string | null }[];
 }
 
 export type StepStatus = "queued" | "running" | "done" | "failed";

@@ -62,7 +62,10 @@ def build_graph(chunks: list[Chunk], manifests: list[Manifest], store: GraphStor
             store.add_edge(fid, evidence_node_id("machine", chunk.machine_id), "located_on")
             svc = _owning_service(chunk.file_path)
             if svc and svc in machines.get(chunk.machine_id, Manifest("", "", "", "", "")).services:
-                store.add_edge(evidence_node_id("service", svc, machine_id=chunk.machine_id), fid, "has_config")
+                store.add_edge(
+                    evidence_node_id("service", svc, machine_id=chunk.machine_id), fid, "has_config",
+                    attrs={"src_chunk": chunk.id},
+                )
 
     # -- machine address book (for the cross-ref pass) ------------------
     machine_ips: dict[str, str] = {}  # ip -> machine_id
@@ -76,6 +79,10 @@ def build_graph(chunks: list[Chunk], manifests: list[Manifest], store: GraphStor
     # -- extracted tier -------------------------------------------------
     for chunk in chunks:
         fid = evidence_node_id("file", chunk.file_path, machine_id=chunk.machine_id)
+        # machine-wide captures are the machine node's evidence; without this,
+        # talks_to fallback edges to machine nodes have no renderable endpoint
+        if chunk.file_path in ("system.txt", "network.txt"):
+            store.add_evidence(evidence_node_id("machine", chunk.machine_id), chunk.id)
         # a service's own files (status, journal, config) are its evidence
         svc = _owning_service(chunk.file_path)
         if svc and svc in machines.get(chunk.machine_id, Manifest("", "", "", "", "")).services:
@@ -126,11 +133,11 @@ def build_graph(chunks: list[Chunk], manifests: list[Manifest], store: GraphStor
             target_machine = _resolve(host, chunk.machine_id, machine_ips, machine_hostnames)
             if target_machine:
                 dst = listeners.get((target_machine, port or "")) or evidence_node_id("machine", target_machine)
-                store.add_edge(src_id, dst, "talks_to")
+                store.add_edge(src_id, dst, "talks_to", attrs={"src_chunk": chunk.id})
             else:
                 host_node = store.get_or_create("host", host)
                 store.add_evidence(host_node.id, chunk.id)
-                store.add_edge(src_id, host_node.id, "talks_to", attrs={"dangling": True})
+                store.add_edge(src_id, host_node.id, "talks_to", attrs={"dangling": True, "src_chunk": chunk.id})
 
 
 def _owning_service(file_path: str) -> str | None:

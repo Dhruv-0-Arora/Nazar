@@ -223,6 +223,12 @@ export const edges: GraphEdge[] = [
   { id: "e5", source: "c-runbook", target: "c-cfg", kind: "references", weight: 0.6 },
   { id: "e6", source: "c-nearmiss", target: "c-fw", kind: "contradicts", weight: 0.4 },
   { id: "e7", source: "c-nearmiss", target: "c-502", kind: "references", weight: 0.3 },
+  { id: "e8", source: "c-runbook", target: "c-err", kind: "relates", weight: 0.81 },
+];
+
+export const clusters = [
+  { id: "c1", label: null as string | null },
+  { id: "c2", label: null as string | null },
 ];
 
 export const steps: AgentStep[] = [
@@ -356,7 +362,7 @@ export const snapshot: ConsoleSnapshot = {
   },
   machines,
   logs,
-  graph: { chunks, edges },
+  graph: { chunks, edges, clusters },
   steps,
   trace,
   diagnosis: {

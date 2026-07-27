@@ -23,6 +23,21 @@ def test_cross_machine_talks_to_edge(case):
     assert ("service:laptop-b/frontend", "talks_to", "service:laptop-a/backend") in rels
 
 
+def test_machine_nodes_have_evidence(case):
+    """system/network chunks are machine evidence; without this, talks_to
+    fallback edges to machine nodes have no renderable endpoint (plan stage 1)."""
+    retriever, _ = case
+    for mid in ("machine:laptop-a", "machine:laptop-b"):
+        assert retriever.graph.nodes[mid].evidence, mid
+
+
+def test_talks_to_edges_carry_provenance(case):
+    retriever, _ = case
+    talks = [e for e in retriever.graph.edges.values() if e.rel == "talks_to"]
+    assert talks
+    assert all("src_chunk" in e.attrs for e in talks)
+
+
 def test_node_accumulates_evidence_across_machines(case):
     """port:5432 is mentioned by laptop-a's env file AND laptop-b's migration doc."""
     retriever, _ = case

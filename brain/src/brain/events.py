@@ -7,6 +7,7 @@ writer per run; seq numbers are monotonic from 1.
 
 import json
 import os
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,9 +24,15 @@ class Event:
 
 
 class EventLog:
+    """Append-only, seq-ordered. Multiple writer threads are allowed (the agent
+    loop and the graph organizer); the lock serializes them, and emits after
+    close() are silent no-ops so a late organizer pass never hits a closed fh."""
+
     def __init__(self, path: Path):
         self.path = path
         self._seq = 0
+        self._lock = threading.Lock()
+        self._closed = False
         path.parent.mkdir(parents=True, exist_ok=True)
         self._fh = open(path, "a", encoding="utf-8")
 
@@ -34,15 +41,20 @@ class EventLog:
         return self._seq
 
     def emit(self, event: str, data: dict) -> int:
-        self._seq += 1
-        record = {"seq": self._seq, "event": event, "ts": time.time(), "data": data}
-        self._fh.write(json.dumps(record, ensure_ascii=False) + "\n")
-        self._fh.flush()
-        os.fsync(self._fh.fileno())
-        return self._seq
+        with self._lock:
+            if self._closed:
+                return 0
+            self._seq += 1
+            record = {"seq": self._seq, "event": event, "ts": time.time(), "data": data}
+            self._fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+            self._fh.flush()
+            os.fsync(self._fh.fileno())
+            return self._seq
 
     def close(self) -> None:
-        self._fh.close()
+        with self._lock:
+            self._closed = True
+            self._fh.close()
 
 
 def read_events(path: Path, after_seq: int = 0) -> list[Event]:

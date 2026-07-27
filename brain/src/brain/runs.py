@@ -14,9 +14,10 @@ from .ingest.usb import is_usb_bundle
 
 
 class RunRegistry:
-    def __init__(self, cfg: Config, llm):
+    def __init__(self, cfg: Config, llm, organizer=None):
         self.cfg = cfg
         self.llm = llm
+        self.organizer = organizer
         self._live: dict[str, RunContext] = {}
         self._sem = asyncio.Semaphore(max(1, cfg.parallel))
 
@@ -48,7 +49,7 @@ class RunRegistry:
 
     async def start(self, ctx: RunContext) -> None:
         async with self._sem:
-            await asyncio.to_thread(execute_run, ctx, self.cfg, self.llm)
+            await asyncio.to_thread(execute_run, ctx, self.cfg, self.llm, self.organizer)
 
     def launch(self, ctx: RunContext) -> asyncio.Task:
         return asyncio.create_task(self.start(ctx), name=f"run:{ctx.run_id}")
@@ -96,6 +97,12 @@ class RunRegistry:
         metrics = _read_json(d / "metrics.json")
         return report, markdown, metrics
 
+    def get_organization(self, run_id: str) -> dict | None:
+        ctx = self._live.get(run_id)
+        if ctx and ctx.organization is not None:
+            return ctx.organization
+        return _read_json(self.run_dir(run_id) / "organization.json")
+
     def get_chunk(self, run_id: str, chunk_id: str) -> dict | None:
         ctx = self._live.get(run_id)
         if ctx and ctx.chunk_store is not None:
@@ -112,12 +119,17 @@ class RunRegistry:
         return None
 
     def get_graph(self, run_id: str) -> dict | None:
+        # live snapshot whenever a graph exists in memory (queued-after-ingest,
+        # running, or a finished ctx whose graph.json write raced/failed)
         ctx = self._live.get(run_id)
-        if ctx and ctx.graph is not None and ctx.status == "running":
+        on_disk = _read_json(self.run_dir(run_id) / "graph.json")
+        if on_disk is not None:
+            return on_disk
+        if ctx and ctx.graph is not None:
             snapshot = ctx.graph.snapshot()
             snapshot.update({"run_id": run_id, "seq": ctx.events.seq if ctx.events else 0})
             return snapshot
-        return _read_json(self.run_dir(run_id) / "graph.json")
+        return None
 
 
 def _read_json(path: Path) -> dict | None:

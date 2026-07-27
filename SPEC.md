@@ -67,6 +67,7 @@ whackathon/
 │   │   │   ├── model.py        Node/Edge dataclasses, ID schemes, caps
 │   │   │   ├── build.py        structural + extracted tiers (deterministic)
 │   │   │   ├── store.py        networkx wrapper, delta emission, snapshots
+│   │   │   ├── organize.py     embedding pair-model: relates edges + clusters (ADR-0016)
 │   │   │   └── cli.py          `brain graph` subcommands (inspect/mutate a run's graph)
 │   │   ├── retrieval.py        search() + expand() facade used by the agent
 │   │   ├── agent/
@@ -320,7 +321,8 @@ Client-side rules (binding): rAF-batched token flush; seq-number dedupe on SSE r
 - Across cases: the watcher dispatches each case to a worker task; runs are fully independent (own chunk store, index, graph, event log). Bounded by a semaphore equal to `OLLAMA_NUM_PARALLEL`.
 - Within a turn: all N search queries fan out concurrently.
 - The loop itself is serial.
-- Ollama config: `OLLAMA_MAX_LOADED_MODELS=1`. `OLLAMA_NUM_PARALLEL` starts at 1: qwen3.5:122b weighs 81 GB on a 120 GB box, and a second KV cache plus OS plus the embedding model is unverified headroom. Measure; raise to 2 only if it demonstrably fits. Predictable serial latency beats swapping mid-demo. (Deviation from PLAN's assumed 2; see OPEN-QUESTIONS #3.)
+- Ollama config: `OLLAMA_MAX_LOADED_MODELS=2` - the graph organizer's embedding pair-model (`qwen3-embedding:8b`, 4.7 GB) stays resident beside the 81 GB primary; headroom measured at ~40 GB ([ADR-0016](docs/decisions/ADR-0016-organization-overlay.md)). `OLLAMA_NUM_PARALLEL` starts at 1: a second KV cache for the 122b is still unverified headroom; raise to 2 only if measured (see OPEN-QUESTIONS #3). Predictable serial latency beats swapping mid-demo.
+- Graph organizer concurrency: a per-run worker thread, event-driven (post-ingest, post-turn, post-conclude) with dirty-flag coalescing; it never blocks or delays the diagnosing model's turns and its output is never agent-visible (ADR-0016).
 
 ## 10. runs/ directory (eval harness for free)
 

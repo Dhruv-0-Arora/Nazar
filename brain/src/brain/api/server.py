@@ -13,8 +13,9 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from ..config import Config, load_config
+from ..graph.organize import Organizer
 from ..ingest.watcher import watch_loop
-from ..llm import OllamaLLM
+from ..llm import OllamaEmbedder, OllamaLLM
 from ..runs import RunRegistry
 from .console import create_console_router
 from .routes import create_router
@@ -28,11 +29,15 @@ def default_ui_dist() -> Path:
     return Path(__file__).resolve().parents[4] / "ui" / "dist"
 
 
-def create_app(cfg: Config | None = None, llm=None) -> FastAPI:
+def create_app(cfg: Config | None = None, llm=None, embedder=None) -> FastAPI:
     cfg = cfg or load_config()
     llm = llm or OllamaLLM(cfg.ollama_url, cfg.model, cfg.llm_timeout_s, cfg.num_ctx)
     cfg.ensure_dirs()
-    registry = RunRegistry(cfg, llm)
+    organizer = None
+    if cfg.organize:
+        embedder = embedder or OllamaEmbedder(cfg.ollama_url, cfg.embed_model, cfg.embed_timeout_s)
+        organizer = Organizer(cfg, embedder)
+    registry = RunRegistry(cfg, llm, organizer)
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):

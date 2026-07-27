@@ -23,6 +23,42 @@ class LLMError(Exception):
     pass
 
 
+class OllamaEmbedder:
+    """Embedding pair-model client (ADR-0016). Lives here because llm.py is the
+    ONLY module that talks to Ollama; the graph organizer injects an instance."""
+
+    def __init__(self, url: str, model: str, timeout_s: float = 30.0):
+        self.url = url.rstrip("/")
+        self.model = model
+        self.timeout_s = timeout_s
+
+    def ping(self) -> str:
+        try:
+            r = httpx.post(f"{self.url}/api/embed", json={"model": self.model, "input": "ping"}, timeout=self.timeout_s)
+            r.raise_for_status()
+            return "ok"
+        except Exception as e:  # noqa: BLE001 - health probe reports, never raises
+            return f"unreachable: {e}"
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        """Batched embeddings; raises LLMError on failure (caller isolates)."""
+        if not texts:
+            return []
+        try:
+            r = httpx.post(
+                f"{self.url}/api/embed",
+                json={"model": self.model, "input": texts},
+                timeout=self.timeout_s,
+            )
+            r.raise_for_status()
+            vectors = r.json().get("embeddings", [])
+        except Exception as e:
+            raise LLMError(f"ollama embed failed: {e}") from e
+        if len(vectors) != len(texts):
+            raise LLMError(f"ollama embed returned {len(vectors)} vectors for {len(texts)} inputs")
+        return vectors
+
+
 class OllamaLLM:
     def __init__(self, url: str, model: str, timeout_s: float = 120.0, num_ctx: int = 32768):
         self.url = url.rstrip("/")

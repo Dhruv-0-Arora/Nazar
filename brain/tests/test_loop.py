@@ -74,3 +74,5 @@ def test_llm_total_failure_marks_run_failed(cfg, tmp_path):
     assert ctx.status == "failed"
     events = read_events(ctx.dir / "events.jsonl")
     assert events[-1].event == "error"
+    # failed runs still persist their graph so the console can render edges
+    assert (ctx.dir / "graph.json").is_file()

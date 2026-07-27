@@ -41,7 +41,7 @@ Offline diagnostic "Brain": client machines are packaged into bundles by a bash 
 
 ## Environment
 
-Brain: NVIDIA GB10, 120 GB unified memory, Ubuntu. Python 3.12.3, Node, Ollama with qwen3.5:122b (81 GB, primary) and qwen3-embedding:8b (future retrieval upgrade). Ports: brain 8000, Ollama 11434. `OLLAMA_NUM_PARALLEL=1` until measured (OPEN-QUESTIONS #3). OpenClaw is the operator-facing chat layer, integrated via the Brain API only (`integration/openclaw/`, ADR-0011); OpenShell is deferred to the future autofix phase.
+Brain: NVIDIA GB10, 120 GB unified memory, Ubuntu. Python 3.12.3, Node, Ollama with qwen3.5:122b (81 GB, primary) and qwen3-embedding:8b (4.7 GB, the graph organizer's pair model, ADR-0016). `OLLAMA_MAX_LOADED_MODELS=2`; `OLLAMA_NUM_PARALLEL=1` until measured (OPEN-QUESTIONS #3). Ports: brain 8000, Ollama 11434. Stage-3 curator (`BRAIN_CURATOR_MODEL`, default off) is agreed to default to nemotron-cascade-2:30b when built. OpenClaw is the operator-facing chat layer, integrated via the Brain API only (`integration/openclaw/`, ADR-0011); OpenShell is deferred to the future autofix phase.
 
 ## Commands
 

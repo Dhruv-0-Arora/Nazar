@@ -75,8 +75,26 @@ def test_snapshot_after_run_carries_console_shapes(cfg):
         assert any(c["kind"] == "config" for c in graph["chunks"])
         kinds = {e["kind"] for e in graph["edges"]}
         assert "calls" in kinds  # talks_to mapped to chunk-level calls edge
+        assert "emitted" in kinds  # service anchor -> its log/journal chunks
+        assert "references" in kinds  # co-mention derivation (doc <-> config/log)
+        assert len(graph["edges"]) >= 8, f"graph too sparse: {len(graph['edges'])} edges"
         chunk_ids = {c["id"] for c in graph["chunks"]}
         assert all(e["source"] in chunk_ids and e["target"] in chunk_ids for e in graph["edges"])
+        assert all(e["source"] != e["target"] for e in graph["edges"])
+
+        # organizer overlay merge: write an overlay, expect clusters + relates in the snapshot
+        run_id = snap["run"]["runId"]
+        two = sorted(chunk_ids)[:2]
+        overlay = {"version": 1, "seq": 1,
+                   "clusters": [{"id": "c1", "label": None, "members": two}],
+                   "edges": [{"source": two[0], "target": two[1], "kind": "relates", "weight": 0.9}]}
+        (cfg.runs / run_id / "organization.json").write_text(json.dumps(overlay))
+        snap2 = client.get("/api/snapshot").json()
+        assert {"id": "c1", "label": None} in snap2["graph"]["clusters"]
+        assert any(c["cluster"] == "c1" for c in snap2["graph"]["chunks"])
+        assert any(e["kind"] == "relates" for e in snap2["graph"]["edges"])
+        org = client.get(f"/api/runs/{run_id}/organization").json()
+        assert org["clusters"][0]["id"] == "c1"
 
         assert snap["steps"] and snap["steps"][-1]["status"] == "done"
         assert any(t["kind"] == "answer" for t in snap["trace"])
