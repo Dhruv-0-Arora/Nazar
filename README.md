@@ -1,5 +1,7 @@
 # Nazar
 
+![NazarLogo](https://drive.google.com/file/d/1mCaD1XI4S2j5CjTBKV3Wy9SDB3IEZuXe/view?usp=drivesdk)
+
 **An offline AI that figures out why a computer system broke, without ever touching the internet.**
 
 You wheel a box into a hospital, a factory, or a ship.
